@@ -1,11 +1,25 @@
 use std::collections::HashSet;
 use std::iter::FromIterator;
 
-use nom::{multispace, space, digit};
+use nom::{multispace, space, digit, IResult};
 
-use feed::{Feed, UpdateSpec, Weekday};
+use feed::{FeedInfo, UpdateSpec, Weekday};
 
-named!(pub config<&str, Vec<Feed>>,
+#[derive(Clone, Debug)]
+pub enum ParseError {
+    Unknown,
+}
+
+pub fn parse_config(input: &str) -> Result<Vec<FeedInfo>, ParseError> {
+    match config(input) {
+        IResult::Done("", out) => Ok(out),
+        IResult::Done(_, _) => Err(ParseError::Unknown),
+        IResult::Error(_) => Err(ParseError::Unknown),
+        IResult::Incomplete(_) => Err(ParseError::Unknown),
+    }
+}
+
+named!(config<&str, Vec<FeedInfo>>,
     do_parse!(
         lines: complete!(many0!(line)) >>
         eof!() >>
@@ -13,15 +27,15 @@ named!(pub config<&str, Vec<Feed>>,
         (lines.into_iter().filter_map(|x| x).collect())
     )
 );
-named!(line<&str, Option<Feed>>,
+named!(line<&str, Option<FeedInfo>>,
     alt_complete!(
         multispace => { |_| None } |
-        feed => { |f| Some(f) } |
+        feed_info => { |f| Some(f) } |
         comment => { |_| None }
     )
 );
 
-named!(feed<&str, Feed>,
+named!(feed_info<&str, FeedInfo>,
     do_parse!(
         name: feed_name >>
         opt!(space) >>
@@ -29,7 +43,7 @@ named!(feed<&str, Feed>,
         opt!(space) >>
         updates: separated_nonempty_list!(space, update_spec) >>
 
-        (Feed {
+        (FeedInfo {
             name: name.into(),
             url: url.into(),
             updates: HashSet::from_iter(updates),
@@ -123,7 +137,7 @@ fn test_config_parser() {
         IResult::Done(
             "",
             vec![
-                Feed {
+                FeedInfo {
                     name: "Questionable Content".into(),
                     url: "http://questionablecontent.net/QCRSS.xml".into(),
                     updates: HashSet::from_iter(vec![
@@ -149,7 +163,7 @@ fn test_config_parser() {
         IResult::Done(
             "",
             vec![
-                Feed {
+                FeedInfo {
                     name: "Goodbye To Halos".into(),
                     url: "http://goodbyetohalos.com/feed/".into(),
                     updates: HashSet::from_iter(vec![
@@ -158,7 +172,7 @@ fn test_config_parser() {
                         UpdateSpec::Overlap(2),
                     ]),
                 },
-                Feed {
+                FeedInfo {
                     name: "Electrum".into(),
                     url: "https://electrum.cubemelon.net/feed".into(),
                     updates: HashSet::from_iter(vec![
@@ -166,7 +180,7 @@ fn test_config_parser() {
                         UpdateSpec::On(Weekday::Thursday),
                     ]),
                 },
-                Feed {
+                FeedInfo {
                     name: "Gunnerkrigg Court".into(),
                     url: "http://gunnerkrigg.com/rss.xml".into(),
                     updates: HashSet::from_iter(vec![

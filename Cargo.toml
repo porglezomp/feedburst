@@ -5,3 +5,7 @@ authors = ["Caleb Jones <code@calebjones.net>"]
 
 [dependencies]
 nom = { version = "^3.1", features = ["verbose-errors", "nightly"] }
+syndication = "0.4"
+reqwest = "0.7"
+xdg = "^2.1"
+chrono = "0.4"
