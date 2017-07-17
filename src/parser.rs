@@ -140,11 +140,9 @@ fn test_config_parser() {
                 FeedInfo {
                     name: "Questionable Content".into(),
                     url: "http://questionablecontent.net/QCRSS.xml".into(),
-                    updates: HashSet::from_iter(vec![
-                        UpdateSpec::On(Weekday::Saturday),
-                    ]),
+                    updates: HashSet::from_iter(vec![UpdateSpec::On(Weekday::Saturday)]),
                 },
-            ]
+            ],
         )
     );
 
@@ -188,7 +186,7 @@ fn test_config_parser() {
                         UpdateSpec::On(Weekday::Tuesday),
                     ]),
                 },
-            ]
+            ],
         )
     )
 }

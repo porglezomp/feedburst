@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 use chrono::{DateTime, Utc, MIN_DATE};
-use std::io::{self, Read, Write};
+use std::io::{self, Read, Write, Seek};
 use std::error;
 use nom::{space, multispace};
 use std::str::FromStr;
@@ -41,7 +41,7 @@ impl ::std::fmt::Display for LoadFeedError {
     fn fmt(&self, fmt: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         match *self {
             LoadFeedError::Io(ref err) => write!(fmt, "{}", err),
-            LoadFeedError::ParseFailure => write!(fmt, "Parse failure"),
+            LoadFeedError::ParseFailure => write!(fmt, "Error parsing feed history"),
         }
     }
 }
@@ -69,8 +69,9 @@ impl FeedInfo {
         reader.read_to_string(&mut string)?;
         let events = match parse_events(&string) {
             IResult::Done("", res) => res,
-            IResult::Done(_, _) | IResult::Error(_) | IResult::Incomplete(_)
-                => return Err(LoadFeedError::ParseFailure),
+            IResult::Done(_, _) |
+            IResult::Error(_) |
+            IResult::Incomplete(_) => return Err(LoadFeedError::ParseFailure),
         };
         let mut last_read = MIN_DATE.and_hms(0, 0, 0);
         let mut new_comics = 0;
@@ -118,7 +119,6 @@ impl Feed {
         for url in urls {
             let url = url.borrow();
             if !self.seen_comics.contains(url) {
-                println!("{}", url);
                 self.new_events.push(FeedEvent::ComicUrl(url.clone()));
             }
         }
@@ -138,7 +138,7 @@ impl Feed {
                         return false;
                     }
                 }
-                UpdateSpec::On(day) => {
+                UpdateSpec::On(_day) => {
                     //@Todo: Implement waiting for a given day
                 }
                 UpdateSpec::Overlap(_) => (),
@@ -151,16 +151,20 @@ impl Feed {
         self.new_events.push(FeedEvent::Read(Utc::now()))
     }
 
-    pub fn write_changes<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+    pub fn write_changes<W: Write + Seek>(&mut self, writer: &mut W) -> io::Result<()> {
+        writer.seek(io::SeekFrom::End(0))?;
         for event in &self.new_events {
             match *event {
-                FeedEvent::ComicUrl(ref url) =>
-                    writeln!(writer, "<{}>", url)?,
-                FeedEvent::Read(date) =>
-                    writeln!(writer, "read {}", date.to_rfc3339())?,
+                FeedEvent::ComicUrl(ref url) => writeln!(writer, "<{}>", url)?,
+                FeedEvent::Read(date) => writeln!(writer, "read {}", date.to_rfc3339())?,
             }
         }
+        self.new_events.clear();
         Ok(())
+    }
+
+    pub fn get_reading_list(&self) -> Vec<String> {
+        Vec::new()
     }
 }
 
