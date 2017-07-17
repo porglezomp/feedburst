@@ -1,10 +1,16 @@
 #[macro_use]
+extern crate log;
+extern crate pretty_env_logger;
+#[macro_use]
 extern crate nom;
 extern crate reqwest;
 extern crate syndication;
 extern crate xdg;
 extern crate chrono;
 extern crate clap;
+extern crate open;
+
+// @Polish: Change error println!() to eprintln!()
 
 use std::io::Read;
 use std::str::FromStr;
@@ -27,6 +33,7 @@ fn main() {
 }
 
 fn run() -> Result<(), Error> {
+    pretty_env_logger::init().unwrap();
     let matches = App::new("feedburst")
         .version("0.1")
         .author("Caleb Jones <code@calebjones.net>")
@@ -75,9 +82,14 @@ fn run() -> Result<(), Error> {
         return Ok(());
     }
 
-    for mut feed in prepared_feeds {
-        if let Err(err) = read_feed(&mut feed) {
-            println!("Error in feed {}: {}", feed.info.name, err);
+    if prepared_feeds.len() == 0 {
+        // @Todo: Provide a better estimate of when new comics will be available.
+        println!("No new comics. Check back tomorrow!");
+    } else {
+        for mut feed in prepared_feeds {
+            if let Err(err) = read_feed(&mut feed) {
+                println!("Error in feed {}: {}", feed.info.name, err);
+            }
         }
     }
 
@@ -86,33 +98,47 @@ fn run() -> Result<(), Error> {
 
 fn get_config(path: Option<&str>) -> Result<std::path::PathBuf, Error> {
     if let Some(path) = path {
+        debug!("Using config specified on command line: {}", path);
         return Ok(path.into());
     }
 
     if let Ok(path) = std::env::var("FEEDBURST_CONFIG_PATH") {
+        debug!("Using config specified as FEEDBURST_CONFIG_PATH: {}", path);
         return Ok(path.into());
     }
 
-    Ok(xdg::BaseDirectories::with_prefix("feedburst")?
-        .place_config_file("config.feeds")?)
+    let path = xdg::BaseDirectories::with_prefix("feedburst")?
+        .place_config_file("config.feeds")?;
+    debug!("Using config found from the XDG config dir: {:?}", path);
+    Ok(path)
 }
 
 fn fetch_feed(feed_info: &FeedInfo) -> Result<Feed, Error> {
+    debug!("Fetching \"{}\" from <{}>", feed_info.name, feed_info.url);
     let mut resp = reqwest::get(&feed_info.url)?;
     let mut content = String::new();
-    resp.read_to_string(&mut content).expect("Read failure");
+    resp.read_to_string(&mut content)?;
     let links: Vec<_> = {
         use syndication::Feed;
         match Feed::from_str(&content)
             .map_err(|x| Error::ParseFeed(x.into()))? {
             Feed::Atom(feed) => {
+                debug!("Parsed feed <{}> as Atom", feed_info.url);
                 feed.entries
                     .into_iter()
+                    .rev()
                     .filter_map(|x| x.links.first().cloned())
                     .map(|x| x.href)
                     .collect()
             }
-            Feed::RSS(feed) => feed.items.into_iter().filter_map(|x| x.link).collect(),
+            Feed::RSS( feed) => {
+                debug!("Parsed feed <{}> as RSS", feed_info.url);
+                feed.items
+                    .into_iter()
+                    .rev()
+                    .filter_map(|x| x.link)
+                    .collect()
+            }
         }
     };
 
@@ -137,12 +163,18 @@ fn feed_info_file(feed_info: &FeedInfo) -> Result<std::fs::File, Error> {
 }
 
 fn read_feed(feed: &mut Feed) -> Result<(), Error> {
-    println!("{}", feed.info.name);
     let mut file = feed_info_file(&feed.info)?;
     let items = feed.get_reading_list();
-    for item in items {
-        println!("{}", item);
+    if items.len() == 0 {
+        return Ok(());
     }
+    let plural_feeds = if items.len() == 1 {
+        "comic"
+    } else {
+        "comics"
+    };
+    println!("{} ({} {})", feed.info.name, items.len(), plural_feeds);
+    open::that(items.first().unwrap())?;
     feed.read();
     feed.write_changes(&mut file)?;
     Ok(())

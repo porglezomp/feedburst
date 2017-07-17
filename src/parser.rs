@@ -2,8 +2,9 @@ use std::collections::HashSet;
 use std::iter::FromIterator;
 
 use nom::{multispace, space, digit, IResult};
+use chrono::Weekday;
 
-use feed::{FeedInfo, UpdateSpec, Weekday};
+use feed::{FeedInfo, UpdateSpec};
 
 #[derive(Clone, Debug)]
 pub enum ParseError {
@@ -75,7 +76,7 @@ named!(update_spec<&str, UpdateSpec>,
 );
 
 named!(feed_update<&str, UpdateSpec>,
-    alt_complete!(
+    complete!(alt_complete!(
         do_parse!(
             tag_no_case_s!("on") >>
             space >>
@@ -88,7 +89,8 @@ named!(feed_update<&str, UpdateSpec>,
             space >>
             num_days: number >>
             space >>
-            tag_no_case_s!("days") >>
+            tag_no_case_s!("day") >>
+            opt!(char!('s')) >>
 
             (UpdateSpec::Every(num_days))
         ) |
@@ -97,7 +99,8 @@ named!(feed_update<&str, UpdateSpec>,
             space >>
             tag_no_case!("new") >>
             space >>
-            tag_no_case!("comics") >>
+            tag_no_case!("comic") >>
+            opt!(char!('s')) >>
 
             (UpdateSpec::Comics(num_comics))
         ) |
@@ -106,22 +109,23 @@ named!(feed_update<&str, UpdateSpec>,
             space >>
             num_comics: number >>
             space >>
-            tag_no_case!("comics") >>
+            tag_no_case!("comic") >>
+            opt!(char!('s')) >>
 
             (UpdateSpec::Overlap(num_comics))
         )
-    )
+    ))
 );
 
 named!(weekday<&str, Weekday>,
     alt_complete!(
-        tag_no_case_s!("sunday") => { |_| Weekday::Sunday } |
-        tag_no_case_s!("monday") => { |_| Weekday::Monday } |
-        tag_no_case_s!("tuesday") => { |_| Weekday::Tuesday } |
-        tag_no_case_s!("wednesday") => { |_| Weekday::Wednesday } |
-        tag_no_case_s!("thursday") => { |_| Weekday::Thursday } |
-        tag_no_case_s!("friday") => { |_| Weekday::Friday } |
-        tag_no_case_s!("saturday") => { |_| Weekday::Saturday }
+        tag_no_case_s!("sunday") => { |_| Weekday::Sun } |
+        tag_no_case_s!("monday") => { |_| Weekday::Mon } |
+        tag_no_case_s!("tuesday") => { |_| Weekday::Tue } |
+        tag_no_case_s!("wednesday") => { |_| Weekday::Wed } |
+        tag_no_case_s!("thursday") => { |_| Weekday::Thu } |
+        tag_no_case_s!("friday") => { |_| Weekday::Fri } |
+        tag_no_case_s!("saturday") => { |_| Weekday::Sat }
     )
 );
 
@@ -140,7 +144,7 @@ fn test_config_parser() {
                 FeedInfo {
                     name: "Questionable Content".into(),
                     url: "http://questionablecontent.net/QCRSS.xml".into(),
-                    updates: HashSet::from_iter(vec![UpdateSpec::On(Weekday::Saturday)]),
+                    updates: HashSet::from_iter(vec![UpdateSpec::On(Weekday::Sat)]),
                 },
             ],
         )
@@ -166,7 +170,7 @@ fn test_config_parser() {
                     url: "http://goodbyetohalos.com/feed/".into(),
                     updates: HashSet::from_iter(vec![
                         UpdateSpec::Comics(3),
-                        UpdateSpec::On(Weekday::Monday),
+                        UpdateSpec::On(Weekday::Mon),
                         UpdateSpec::Overlap(2),
                     ]),
                 },
@@ -175,7 +179,7 @@ fn test_config_parser() {
                     url: "https://electrum.cubemelon.net/feed".into(),
                     updates: HashSet::from_iter(vec![
                         UpdateSpec::Comics(5),
-                        UpdateSpec::On(Weekday::Thursday),
+                        UpdateSpec::On(Weekday::Thu),
                     ]),
                 },
                 FeedInfo {
@@ -183,7 +187,7 @@ fn test_config_parser() {
                     url: "http://gunnerkrigg.com/rss.xml".into(),
                     updates: HashSet::from_iter(vec![
                         UpdateSpec::Comics(4),
-                        UpdateSpec::On(Weekday::Tuesday),
+                        UpdateSpec::On(Weekday::Tue),
                     ]),
                 },
             ],
