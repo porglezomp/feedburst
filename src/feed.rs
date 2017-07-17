@@ -188,7 +188,7 @@ impl Feed {
         trace!("Reading list for \"{}\", overlap {}", self.info.name, additional);
         let mut finishing = false;
         let mut result = Vec::new();
-        for event in self.new_events.iter().chain(&self.events) {
+        for event in self.events.iter().chain(&self.new_events).rev() {
             match *event {
                 FeedEvent::ComicUrl(ref url) => {
                     if finishing {
@@ -206,6 +206,7 @@ impl Feed {
             }
         }
         debug!("Reading list for \"{}\" has {}", self.info.name, result.len());
+        result.reverse();
         result
     }
 }
