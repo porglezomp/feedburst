@@ -5,22 +5,38 @@ extern crate pretty_env_logger;
 extern crate nom;
 extern crate reqwest;
 extern crate syndication;
-extern crate xdg;
 extern crate chrono;
 extern crate clap;
 extern crate open;
+
+// I don't want to put config in ~/Library/... on Mac, so we use XDG there too
+#[cfg(unix)]
+extern crate xdg;
+#[cfg(windows)]
+extern crate app_dirs;
 
 // @Polish: Change error println!() to eprintln!()
 
 use std::io::Read;
 use std::str::FromStr;
+use std::fs::{File, OpenOptions};
+use std::path::PathBuf;
 
 use clap::{Arg, App};
+#[cfg(windows)]
+use app_dirs::{AppInfo, AppDataType, get_app_dir, get_app_root};
 
 mod parser;
 mod feed;
 
 use feed::{Feed, FeedInfo};
+
+const APP_NAME: &'static str = "feedburst";
+#[cfg(windows)]
+const APP_INFO: AppInfo = AppInfo {
+    name: APP_NAME,
+    author: "porglezomp",
+};
 
 fn main() {
     std::process::exit(match run() {
@@ -34,7 +50,7 @@ fn main() {
 
 fn run() -> Result<(), Error> {
     pretty_env_logger::init().unwrap();
-    let matches = App::new("feedburst")
+    let matches = App::new(APP_NAME)
         .version("0.1")
         .author("Caleb Jones <code@calebjones.net>")
         .about("Presents you your RSS feeds in chunks")
@@ -56,7 +72,7 @@ fn run() -> Result<(), Error> {
     let only_fetch = matches.value_of("fetch").is_some();
 
     let feeds = {
-        let mut file = std::fs::File::open(config_path)?;
+        let mut file = File::open(config_path)?;
         let mut text = String::new();
         file.read_to_string(&mut text)?;
         parser::parse_config(&text)?
@@ -89,7 +105,7 @@ fn run() -> Result<(), Error> {
     Ok(())
 }
 
-fn get_config(path: Option<&str>) -> Result<std::path::PathBuf, Error> {
+fn get_config(path: Option<&str>) -> Result<PathBuf, Error> {
     if let Some(path) = path {
         debug!("Using config specified on command line: {}", path);
         return Ok(path.into());
@@ -100,10 +116,21 @@ fn get_config(path: Option<&str>) -> Result<std::path::PathBuf, Error> {
         return Ok(path.into());
     }
 
-    let path = xdg::BaseDirectories::with_prefix("feedburst")?
-        .place_config_file("config.feeds")?;
+    #[cfg(unix)]
+    fn fallback() -> Result<PathBuf, Error> {
+        Ok(xdg::BaseDirectories::with_prefix(APP_NAME)?
+           .place_config_file("config.feeds")?)
+    }
+
+    #[cfg(windows)]
+    fn fallback() -> Result<PathBuf, Error> {
+        let mut dir = get_app_root(AppDataType::UserConfig, &APP_INFO)?;
+        dir.push("config.feeds");
+        Ok(dir)
+    }
+
     debug!("Using config found from the XDG config dir: {:?}", path);
-    Ok(path)
+    fallback()
 }
 
 fn fetch_feed(feed_info: &FeedInfo) -> Result<Feed, Error> {
@@ -142,12 +169,24 @@ fn fetch_feed(feed_info: &FeedInfo) -> Result<Feed, Error> {
     Ok(feed)
 }
 
-fn feed_info_file(feed_info: &FeedInfo) -> Result<std::fs::File, Error> {
-    let path = format!("feeds/{}.feed", feed_info.name);
-    let path = xdg::BaseDirectories::with_prefix("feedburst")?
-        .place_data_file(&path)?;
+fn feed_info_file(feed_info: &FeedInfo) -> Result<File, Error> {
+    #[cfg(unix)]
+    fn get_path(name: &str) -> Result<PathBuf, Error> {
+        let path = format!("feeds/{}.feed", name);
+        Ok(xdg::BaseDirectories::with_prefix(APP_NAME)?
+           .place_data_file(&path)?)
+    }
 
-    std::fs::OpenOptions::new()
+    #[cfg(windows)]
+    fn get_path(name: &str) -> Result<PathBuf, Error> {
+        let mut path = get_app_dir(AppDataType::UserData, &APP_INFO, "feeds")?;
+        path.push(format!("{}.feed", name));
+        Ok(path)
+    }
+
+    let path = get_path(&feed_info.name)?;
+
+    OpenOptions::new()
         .read(true)
         .write(true)
         .create(true)
@@ -193,7 +232,10 @@ pub enum Error {
     ParseFeed(String),
     Request(reqwest::Error),
     LoadFeed(feed::LoadFeedError),
+    #[cfg(unix)]
     BaseDirectory(xdg::BaseDirectoriesError),
+    #[cfg(windows)]
+    BaseDirectory(app_dirs::AppDirsError),
 }
 
 impl From<std::io::Error> for Error {
@@ -220,8 +262,16 @@ impl From<reqwest::Error> for Error {
     }
 }
 
+#[cfg(unix)]
 impl From<xdg::BaseDirectoriesError> for Error {
     fn from(err: xdg::BaseDirectoriesError) -> Error {
+        Error::BaseDirectory(err)
+    }
+}
+
+#[cfg(windows)]
+impl From<app_dirs::AppDirsError> for Error {
+    fn from(err: app_dirs::AppDirsError) -> Error {
         Error::BaseDirectory(err)
     }
 }
@@ -234,6 +284,9 @@ impl std::error::Error for Error {
             Error::Request(ref err) => err.description(),
             Error::LoadFeed(ref err) => err.description(),
             Error::ParseFeed(ref _err) => "Error parsing feed",
+            #[cfg(unix)]
+            Error::BaseDirectory(ref err) => err.description(),
+            #[cfg(windows)]
             Error::BaseDirectory(ref err) => err.description(),
         }
     }
