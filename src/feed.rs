@@ -119,6 +119,11 @@ impl Feed {
         let elapsed_time = Utc::now().signed_duration_since(self.last_read);
         let mut day_passed = false;
         let mut day_relevant = false;
+
+        if self.new_comics < 1 {
+            return false;
+        }
+
         for policy in &self.info.updates {
             match *policy {
                 UpdateSpec::Every(num_days) => {

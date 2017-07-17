@@ -61,11 +61,11 @@ fn run() -> Result<(), Error> {
         file.read_to_string(&mut text)?;
         parser::parse_config(&text)?
     };
-    let mut prepared_feeds = Vec::new();
 
     // @Performance: Use hyper to fetch streams concurrently
+    let mut num_read = 0;
     for feed_info in feeds {
-        let feed = match fetch_feed(&feed_info) {
+        let mut feed = match fetch_feed(&feed_info) {
             Ok(feed) => feed,
             Err(err) => {
                 println!("Error in feed {}: {}", feed_info.name, err);
@@ -73,24 +73,17 @@ fn run() -> Result<(), Error> {
             }
         };
 
-        if feed.is_ready() {
-            prepared_feeds.push(feed);
-        }
-    }
-
-    if only_fetch {
-        return Ok(());
-    }
-
-    if prepared_feeds.len() == 0 {
-        // @Todo: Provide a better estimate of when new comics will be available.
-        println!("No new comics. Check back tomorrow!");
-    } else {
-        for mut feed in prepared_feeds {
+        if feed.is_ready() && !only_fetch {
+            num_read += 1;
             if let Err(err) = read_feed(&mut feed) {
                 println!("Error in feed {}: {}", feed.info.name, err);
             }
         }
+    }
+
+    if num_read == 0 && !only_fetch {
+        // @Todo: Provide a better estimate of when new comics will be available.
+        println!("No new comics. Check back tomorrow!");
     }
 
     Ok(())

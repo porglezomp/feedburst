@@ -22,18 +22,18 @@ pub fn parse_config(input: &str) -> Result<Vec<FeedInfo>, ParseError> {
 
 named!(config<&str, Vec<FeedInfo>>,
     do_parse!(
-        lines: complete!(many0!(line)) >>
+        lines: many0!(line) >>
         eof!() >>
 
         (lines.into_iter().filter_map(|x| x).collect())
     )
 );
 named!(line<&str, Option<FeedInfo>>,
-    alt_complete!(
+    complete!(alt_complete!(
         multispace => { |_| None } |
         feed_info => { |f| Some(f) } |
         comment => { |_| None }
-    )
+    ))
 );
 
 named!(feed_info<&str, FeedInfo>,
@@ -42,7 +42,7 @@ named!(feed_info<&str, FeedInfo>,
         opt!(space) >>
         url: feed_url >>
         opt!(space) >>
-        updates: separated_nonempty_list!(space, update_spec) >>
+        updates: separated_list!(space, update_spec) >>
 
         (FeedInfo {
             name: name.into(),
