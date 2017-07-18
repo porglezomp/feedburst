@@ -80,21 +80,21 @@ fn run() -> Result<(), Error> {
             let line = text.lines().nth(row).unwrap_or_default();
             message.push_str(&format!("{}\n", line));
             match span {
-                None => (),
+                None => message.push('\n'),
                 Some((l, r)) => {
                     let underline = format!("{}{}\n", " ".repeat(l), "^".repeat(r - l + 1));
                     message.push_str(&underline);
                 }
             }
 
-            message.push_str(&format!("\nExpected {}", msg));
+            message.push_str(&format!("Expected {}", msg));
             Error::Msg(message)
         };
 
         match parser::parse_config(&text) {
             Ok(feeds) => feeds,
             Err(ParseError::Expected { character, row, span }) => {
-                let msg = format!("{:?}", character);
+                let msg = format!("'{}'", character);
                 return Err(make_error_message(row, span, &msg));
             }
             Err(ParseError::ExpectedMsg { msg, row, span }) => {

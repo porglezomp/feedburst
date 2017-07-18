@@ -67,10 +67,13 @@ fn parse_url(row: usize, col: usize, input: &str) -> Result<(usize, String), Par
 
 fn parse_policies(row: usize, col: usize, input: &str) -> Result<Vec<UpdateSpec>, ParseError> {
     let mut out = Vec::new();
-    let start_col = match input[col..].find('@') {
+    let start_col = match input[col..].find(not_space) {
         Some(off) => col + off,
         None => return Ok(out),
     };
+    if input[start_col..].chars().next() != Some('@') {
+        return Err(ParseError::expected_char('@', row, start_col));
+    }
 
     let mut col = start_col;
     for policy_chunk in input[start_col+1..].split('@') {
