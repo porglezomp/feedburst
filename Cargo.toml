@@ -4,4 +4,13 @@ version = "0.1.0"
 authors = ["Caleb Jones <code@calebjones.net>"]
 
 [dependencies]
-nom = { version = "^3.1", features = ["verbose-errors", "nightly"] }
+nom = { version = "^3.1", features = ["verbose-errors"] }
+syndication = "0.4"
+reqwest = "0.7"
+xdg = "^2.1"
+chrono = "0.4"
+clap = "2.25"
+open = "1.2"
+log = "0.3.8"
+pretty_env_logger = "0.1.1"
+app_dirs = "1.1.1"

@@ -1,35 +1,50 @@
 use std::collections::HashSet;
 use std::iter::FromIterator;
 
-use nom::{multispace, space, digit};
+use nom::{multispace, space, digit, IResult};
+use chrono::Weekday;
 
-use feed::{Feed, UpdateSpec, Weekday};
+use feed::{FeedInfo, UpdateSpec};
 
-named!(pub config<&str, Vec<Feed>>,
+#[derive(Clone, Debug)]
+pub enum ParseError {
+    Unknown,
+}
+
+pub fn parse_config(input: &str) -> Result<Vec<FeedInfo>, ParseError> {
+    match config(input) {
+        IResult::Done("", out) => Ok(out),
+        IResult::Done(_, _) => Err(ParseError::Unknown),
+        IResult::Error(_) => Err(ParseError::Unknown),
+        IResult::Incomplete(_) => Err(ParseError::Unknown),
+    }
+}
+
+named!(config<&str, Vec<FeedInfo>>,
     do_parse!(
-        lines: complete!(many0!(line)) >>
+        lines: many0!(line) >>
         eof!() >>
 
         (lines.into_iter().filter_map(|x| x).collect())
     )
 );
-named!(line<&str, Option<Feed>>,
-    alt_complete!(
+named!(line<&str, Option<FeedInfo>>,
+    complete!(alt_complete!(
         multispace => { |_| None } |
-        feed => { |f| Some(f) } |
+        feed_info => { |f| Some(f) } |
         comment => { |_| None }
-    )
+    ))
 );
 
-named!(feed<&str, Feed>,
+named!(feed_info<&str, FeedInfo>,
     do_parse!(
         name: feed_name >>
         opt!(space) >>
         url: feed_url >>
         opt!(space) >>
-        updates: separated_nonempty_list!(space, update_spec) >>
+        updates: separated_list!(space, update_spec) >>
 
-        (Feed {
+        (FeedInfo {
             name: name.into(),
             url: url.into(),
             updates: HashSet::from_iter(updates),
@@ -61,7 +76,7 @@ named!(update_spec<&str, UpdateSpec>,
 );
 
 named!(feed_update<&str, UpdateSpec>,
-    alt_complete!(
+    complete!(alt_complete!(
         do_parse!(
             tag_no_case_s!("on") >>
             space >>
@@ -74,7 +89,8 @@ named!(feed_update<&str, UpdateSpec>,
             space >>
             num_days: number >>
             space >>
-            tag_no_case_s!("days") >>
+            tag_no_case_s!("day") >>
+            opt!(char!('s')) >>
 
             (UpdateSpec::Every(num_days))
         ) |
@@ -83,7 +99,8 @@ named!(feed_update<&str, UpdateSpec>,
             space >>
             tag_no_case!("new") >>
             space >>
-            tag_no_case!("comics") >>
+            tag_no_case!("comic") >>
+            opt!(char!('s')) >>
 
             (UpdateSpec::Comics(num_comics))
         ) |
@@ -92,22 +109,23 @@ named!(feed_update<&str, UpdateSpec>,
             space >>
             num_comics: number >>
             space >>
-            tag_no_case!("comics") >>
+            tag_no_case!("comic") >>
+            opt!(char!('s')) >>
 
             (UpdateSpec::Overlap(num_comics))
         )
-    )
+    ))
 );
 
 named!(weekday<&str, Weekday>,
     alt_complete!(
-        tag_no_case_s!("sunday") => { |_| Weekday::Sunday } |
-        tag_no_case_s!("monday") => { |_| Weekday::Monday } |
-        tag_no_case_s!("tuesday") => { |_| Weekday::Tuesday } |
-        tag_no_case_s!("wednesday") => { |_| Weekday::Wednesday } |
-        tag_no_case_s!("thursday") => { |_| Weekday::Thursday } |
-        tag_no_case_s!("friday") => { |_| Weekday::Friday } |
-        tag_no_case_s!("saturday") => { |_| Weekday::Saturday }
+        tag_no_case_s!("sunday") => { |_| Weekday::Sun } |
+        tag_no_case_s!("monday") => { |_| Weekday::Mon } |
+        tag_no_case_s!("tuesday") => { |_| Weekday::Tue } |
+        tag_no_case_s!("wednesday") => { |_| Weekday::Wed } |
+        tag_no_case_s!("thursday") => { |_| Weekday::Thu } |
+        tag_no_case_s!("friday") => { |_| Weekday::Fri } |
+        tag_no_case_s!("saturday") => { |_| Weekday::Sat }
     )
 );
 
@@ -123,14 +141,12 @@ fn test_config_parser() {
         IResult::Done(
             "",
             vec![
-                Feed {
+                FeedInfo {
                     name: "Questionable Content".into(),
                     url: "http://questionablecontent.net/QCRSS.xml".into(),
-                    updates: HashSet::from_iter(vec![
-                        UpdateSpec::On(Weekday::Saturday),
-                    ]),
+                    updates: HashSet::from_iter(vec![UpdateSpec::On(Weekday::Sat)]),
                 },
-            ]
+            ],
         )
     );
 
@@ -149,32 +165,32 @@ fn test_config_parser() {
         IResult::Done(
             "",
             vec![
-                Feed {
+                FeedInfo {
                     name: "Goodbye To Halos".into(),
                     url: "http://goodbyetohalos.com/feed/".into(),
                     updates: HashSet::from_iter(vec![
                         UpdateSpec::Comics(3),
-                        UpdateSpec::On(Weekday::Monday),
+                        UpdateSpec::On(Weekday::Mon),
                         UpdateSpec::Overlap(2),
                     ]),
                 },
-                Feed {
+                FeedInfo {
                     name: "Electrum".into(),
                     url: "https://electrum.cubemelon.net/feed".into(),
                     updates: HashSet::from_iter(vec![
                         UpdateSpec::Comics(5),
-                        UpdateSpec::On(Weekday::Thursday),
+                        UpdateSpec::On(Weekday::Thu),
                     ]),
                 },
-                Feed {
+                FeedInfo {
                     name: "Gunnerkrigg Court".into(),
                     url: "http://gunnerkrigg.com/rss.xml".into(),
                     updates: HashSet::from_iter(vec![
                         UpdateSpec::Comics(4),
-                        UpdateSpec::On(Weekday::Tuesday),
+                        UpdateSpec::On(Weekday::Tue),
                     ]),
                 },
-            ]
+            ],
         )
     )
 }
