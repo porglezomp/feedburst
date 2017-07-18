@@ -1,120 +1,145 @@
 use std::collections::HashSet;
 use std::iter::FromIterator;
 
-use nom::{multispace, space, digit, IResult};
+use nom::{space, digit, IResult};
 use chrono::Weekday;
 
 use feed::{FeedInfo, UpdateSpec};
+use error::ParseError;
 
-#[derive(Clone, Debug)]
-pub enum ParseError {
-    Unknown,
+fn not_space(x: char) -> bool {
+    !x.is_whitespace()
 }
 
 pub fn parse_config(input: &str) -> Result<Vec<FeedInfo>, ParseError> {
-    match config(input) {
-        IResult::Done("", out) => Ok(out),
-        IResult::Done(_, _) => Err(ParseError::Unknown),
-        IResult::Error(_) => Err(ParseError::Unknown),
-        IResult::Incomplete(_) => Err(ParseError::Unknown),
+    let mut out = Vec::new();
+    for (row, line) in input.lines().enumerate() {
+        if let Some(col) = line.find(|x| x != ' ' && x != '\t') {
+            if line[col..].chars().next() != Some('#') {
+                out.push(parse_line(row, col, line)?);
+            }
+        }
+    }
+    Ok(out)
+}
+
+pub fn parse_line(row: usize, col: usize, input: &str) -> Result<FeedInfo, ParseError> {
+    let (col, name) = parse_name(row, col, input)?;
+    let (col, url) = parse_url(row, col, input)?;
+    let policies = parse_policies(row, col, input)?;
+    Ok(FeedInfo {
+        name,
+        url,
+        updates: HashSet::from_iter(policies),
+    })
+}
+
+fn find_char(row: usize, col: usize, input: &str, c: char) -> Result<usize, ParseError> {
+    match input[col..].find(c) {
+        Some(off) => Ok(off + col),
+        None => Err(ParseError::expected_char(c, row, None)),
     }
 }
 
-named!(config<&str, Vec<FeedInfo>>,
-    do_parse!(
-        lines: many0!(line) >>
-        eof!() >>
+fn parse_name(row: usize, col: usize, input: &str) -> Result<(usize, String), ParseError> {
+    let start_col = match input[col..].find(not_space) {
+        Some(off) => off + col,
+        None => return Err(ParseError::expected_char('"', row, None)),
+    };
+    if input[start_col..].chars().next() != Some('"') {
+        return Err(ParseError::expected_char('"', row, start_col));
+    }
+    let end_col = find_char(row, start_col+1, input, '"')?;
+    Ok((end_col+1, input[start_col+1..end_col].into()))
+}
 
-        (lines.into_iter().filter_map(|x| x).collect())
-    )
-);
-named!(line<&str, Option<FeedInfo>>,
-    complete!(alt_complete!(
-        multispace => { |_| None } |
-        feed_info => { |f| Some(f) } |
-        comment => { |_| None }
-    ))
-);
+fn parse_url(row: usize, col: usize, input: &str) -> Result<(usize, String), ParseError> {
+    let start_col = match input[col..].find(not_space) {
+        Some(off) => off + col,
+        None => return Err(ParseError::expected_char('<', row, None)),
+    };
+    if input[start_col..].chars().next() != Some('<') {
+        return Err(ParseError::expected_char('<', row, start_col));
+    }
+    let end_col = find_char(row, start_col+1, input, '>')?;
+    Ok((end_col+1, input[start_col+1..end_col].into()))
+}
 
-named!(feed_info<&str, FeedInfo>,
-    do_parse!(
-        name: feed_name >>
-        opt!(space) >>
-        url: feed_url >>
-        opt!(space) >>
-        updates: separated_list!(space, update_spec) >>
+fn parse_policies(row: usize, col: usize, input: &str) -> Result<Vec<UpdateSpec>, ParseError> {
+    let mut out = Vec::new();
+    let start_col = match input[col..].find('@') {
+        Some(off) => col + off,
+        None => return Ok(out),
+    };
 
-        (FeedInfo {
-            name: name.into(),
-            url: url.into(),
-            updates: HashSet::from_iter(updates),
-        })
-    )
-);
+    let mut col = start_col;
+    for policy_chunk in input[start_col+1..].split('@') {
+        out.push(parse_policy(row, col, policy_chunk)?);
+        col += 1 + policy_chunk.len();
+    }
 
-named!(comment<&str, ()>,
-    value!((),
-        tuple!(
-            char!('#'),
-            take_until_and_consume_s!("\n")
-        )
-    )
-);
+    Ok(out)
+}
 
-named!(feed_name<&str, &str>, complete!(delimited!(char!('"'), is_not!("\""), char!('"'))));
-named!(feed_url<&str, &str>, complete!(delimited!(char!('<'), is_not!(">"), char!('>'))));
+fn parse_policy(row: usize, col: usize, input: &str) -> Result<UpdateSpec, ParseError> {
+    let self_span = (col, col + input.len());
+    match feed_update(input) {
+        IResult::Done("", policy) => Ok(policy),
+        _ => Err(ParseError::expected(r#"a policy definition. One of:
+ - "@ on <weekday>"
+ - "@ every # day(s)"
+ - "@ # new comic(s)"
+ - "@ overlap # comic(s)""#, row, self_span)),
+    }
+}
+
 named!(number<&str, usize>, complete!(map_res!(digit, |x: &str| x.parse())));
 
-named!(update_spec<&str, UpdateSpec>,
-    do_parse!(
-        char!('@') >>
-        opt!(space) >>
-        update: feed_update >>
-
-        (update)
-    )
-);
-
 named!(feed_update<&str, UpdateSpec>,
-    complete!(alt_complete!(
-        do_parse!(
-            tag_no_case_s!("on") >>
-            space >>
-            weekday: weekday >>
+    do_parse!(
+        opt!(complete!(space)) >>
+        res: alt_complete!(
+            do_parse!(
+                tag_no_case_s!("on") >>
+                space >>
+                weekday: weekday >>
 
-            (UpdateSpec::On(weekday))
-        ) |
-        do_parse!(
-            tag_no_case_s!("every") >>
-            space >>
-            num_days: number >>
-            space >>
-            tag_no_case_s!("day") >>
-            opt!(char!('s')) >>
+                (UpdateSpec::On(weekday))
+            ) |
+            do_parse!(
+                tag_no_case_s!("every") >>
+                space >>
+                num_days: number >>
+                space >>
+                tag_no_case_s!("day") >>
+                opt!(complete!(char!('s'))) >>
 
-            (UpdateSpec::Every(num_days))
-        ) |
-        do_parse!(
-            num_comics: number >>
-            space >>
-            tag_no_case!("new") >>
-            space >>
-            tag_no_case!("comic") >>
-            opt!(char!('s')) >>
+                (UpdateSpec::Every(num_days))
+            ) |
+            do_parse!(
+                num_comics: number >>
+                space >>
+                tag_no_case!("new") >>
+                space >>
+                tag_no_case!("comic") >>
+                opt!(complete!(char!('s'))) >>
 
-            (UpdateSpec::Comics(num_comics))
-        ) |
-        do_parse!(
-            tag_no_case_s!("overlap") >>
-            space >>
-            num_comics: number >>
-            space >>
-            tag_no_case!("comic") >>
-            opt!(char!('s')) >>
+                (UpdateSpec::Comics(num_comics))
+            ) |
+            do_parse!(
+                tag_no_case_s!("overlap") >>
+                space >>
+                num_comics: number >>
+                space >>
+                tag_no_case!("comic") >>
+                opt!(complete!(char!('s'))) >>
 
-            (UpdateSpec::Overlap(num_comics))
-        )
-    ))
+                (UpdateSpec::Overlap(num_comics))
+            )
+        ) >>
+        opt!(complete!(space)) >>
+        (res)
+    )
 );
 
 named!(weekday<&str, Weekday>,
@@ -131,23 +156,18 @@ named!(weekday<&str, Weekday>,
 
 #[test]
 fn test_config_parser() {
-    use nom::IResult;
-
     let input = r#"
 "Questionable Content" <http://questionablecontent.net/QCRSS.xml> @ on Saturday
 "#;
     assert_eq!(
-        config(input),
-        IResult::Done(
-            "",
-            vec![
-                FeedInfo {
-                    name: "Questionable Content".into(),
-                    url: "http://questionablecontent.net/QCRSS.xml".into(),
-                    updates: HashSet::from_iter(vec![UpdateSpec::On(Weekday::Sat)]),
-                },
-            ],
-        )
+        parse_config(input),
+        Ok(vec![
+            FeedInfo {
+                name: "Questionable Content".into(),
+                url: "http://questionablecontent.net/QCRSS.xml".into(),
+                updates: HashSet::from_iter(vec![UpdateSpec::On(Weekday::Sat)]),
+            },
+        ])
     );
 
     let input = r#"
@@ -161,36 +181,33 @@ fn test_config_parser() {
 
 "#;
     assert_eq!(
-        config(input),
-        IResult::Done(
-            "",
-            vec![
-                FeedInfo {
-                    name: "Goodbye To Halos".into(),
-                    url: "http://goodbyetohalos.com/feed/".into(),
-                    updates: HashSet::from_iter(vec![
-                        UpdateSpec::Comics(3),
-                        UpdateSpec::On(Weekday::Mon),
-                        UpdateSpec::Overlap(2),
-                    ]),
-                },
-                FeedInfo {
-                    name: "Electrum".into(),
-                    url: "https://electrum.cubemelon.net/feed".into(),
-                    updates: HashSet::from_iter(vec![
-                        UpdateSpec::Comics(5),
-                        UpdateSpec::On(Weekday::Thu),
-                    ]),
-                },
-                FeedInfo {
-                    name: "Gunnerkrigg Court".into(),
-                    url: "http://gunnerkrigg.com/rss.xml".into(),
-                    updates: HashSet::from_iter(vec![
-                        UpdateSpec::Comics(4),
-                        UpdateSpec::On(Weekday::Tue),
-                    ]),
-                },
-            ],
-        )
+        parse_config(input),
+        Ok(vec![
+            FeedInfo {
+                name: "Goodbye To Halos".into(),
+                url: "http://goodbyetohalos.com/feed/".into(),
+                updates: HashSet::from_iter(vec![
+                    UpdateSpec::Comics(3),
+                    UpdateSpec::On(Weekday::Mon),
+                    UpdateSpec::Overlap(2),
+                ]),
+            },
+            FeedInfo {
+                name: "Electrum".into(),
+                url: "https://electrum.cubemelon.net/feed".into(),
+                updates: HashSet::from_iter(vec![
+                    UpdateSpec::Comics(5),
+                    UpdateSpec::On(Weekday::Thu),
+                ]),
+            },
+            FeedInfo {
+                name: "Gunnerkrigg Court".into(),
+                url: "http://gunnerkrigg.com/rss.xml".into(),
+                updates: HashSet::from_iter(vec![
+                    UpdateSpec::Comics(4),
+                    UpdateSpec::On(Weekday::Tue),
+                ]),
+            },
+        ])
     )
 }

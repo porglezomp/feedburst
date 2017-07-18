@@ -1,9 +1,9 @@
 use std::collections::HashSet;
 use chrono::{DateTime, Utc, MIN_DATE, Weekday};
 use std::io::{self, Read, Write, Seek};
-use std::error;
 use nom::{space, multispace};
 use std::str::FromStr;
+use error::{Error, };
 
 #[derive(Hash, Copy, Clone, Debug, PartialEq, Eq)]
 pub enum UpdateSpec {
@@ -20,38 +20,8 @@ pub struct FeedInfo {
     pub updates: HashSet<UpdateSpec>,
 }
 
-#[derive(Debug)]
-pub enum LoadFeedError {
-    Io(io::Error),
-    ParseFailure,
-}
-
-impl ::std::fmt::Display for LoadFeedError {
-    fn fmt(&self, fmt: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        match *self {
-            LoadFeedError::Io(ref err) => write!(fmt, "{}", err),
-            LoadFeedError::ParseFailure => write!(fmt, "Error parsing feed history"),
-        }
-    }
-}
-
-impl From<io::Error> for LoadFeedError {
-    fn from(err: io::Error) -> Self {
-        LoadFeedError::Io(err)
-    }
-}
-
-impl error::Error for LoadFeedError {
-    fn description(&self) -> &str {
-        match *self {
-            LoadFeedError::Io(ref err) => err.description(),
-            LoadFeedError::ParseFailure => "failed parsing feed",
-        }
-    }
-}
-
 impl FeedInfo {
-    pub fn read_feed<R: Read>(&self, reader: &mut R) -> Result<Feed, LoadFeedError> {
+    pub fn read_feed<R: Read>(&self, reader: &mut R) -> Result<Feed, Error> {
         use nom::IResult;
 
         let mut string = String::new();
@@ -60,7 +30,9 @@ impl FeedInfo {
             IResult::Done("", res) => res,
             IResult::Done(_, _) |
             IResult::Error(_) |
-            IResult::Incomplete(_) => return Err(LoadFeedError::ParseFailure),
+            IResult::Incomplete(_) => return Err(Error::Msg(
+                format!("Error parsing event log for \"{}\"", self.name)
+            )),
         };
         let mut last_read = MIN_DATE.and_hms(0, 0, 0);
         let mut new_comics = 0;
@@ -215,6 +187,11 @@ impl Feed {
         result
     }
 }
+
+
+// fn parse_events(events: &str) -> Result<Vec<FeedEvent>, FeedParseError> {
+//     Ok(Vec::new())
+// }
 
 named!(parse_events<&str, Vec<FeedEvent>>,
     do_parse!(
