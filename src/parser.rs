@@ -4,7 +4,7 @@ use std::iter::FromIterator;
 use nom::{space, digit, IResult};
 use chrono::Weekday;
 
-use feed::{FeedInfo, UpdateSpec};
+use feed::{FeedInfo, UpdateSpec, FeedEvent};
 use error::ParseError;
 
 fn not_space(x: char) -> bool {
@@ -89,7 +89,7 @@ fn parse_policy(row: usize, col: usize, input: &str) -> Result<UpdateSpec, Parse
     match feed_update(input) {
         IResult::Done("", policy) => Ok(policy),
         _ => Err(ParseError::expected(r#"a policy definition. One of:
- - "@ on <weekday>"
+ - "@ on WEEKDAY"
  - "@ every # day(s)"
  - "@ # new comic(s)"
  - "@ overlap # comic(s)""#, row, self_span)),
@@ -213,4 +213,37 @@ fn test_config_parser() {
             },
         ])
     )
+}
+
+pub fn parse_events(input: &str) -> Result<Vec<FeedEvent>, ParseError> {
+    let mut result = Vec::new();
+    for (row, line) in input.lines().enumerate() {
+        let line = line.trim_right();
+        let start_pos = match line.find(not_space) {
+            Some(pos) => pos,
+            None => continue,
+        };
+
+        if line[start_pos..].starts_with("read") {
+            let date = match line[start_pos+5..].parse() {
+                Ok(date) => date,
+                Err(_) => {
+                    let span = (start_pos + 5, line.len());
+                    return Err(ParseError::expected("a valid date.", row, span));
+                }
+            };
+            result.push(FeedEvent::Read(date))
+        } else if line[start_pos..].starts_with("<") {
+            if !line.ends_with(">") {
+                return Err(ParseError::expected_char('>', row, line.len()));
+            }
+            let url = &line[start_pos+1..line.len()-1];
+            result.push(FeedEvent::ComicUrl(url.into()));
+        } else {
+            return Err(ParseError::expected(r#"a feed event. One of:
+ - "<url>"
+ - "read DATE""#, row, None));
+        }
+    }
+    Ok(result)
 }
