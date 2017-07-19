@@ -72,11 +72,19 @@ fn run() -> Result<(), Error> {
     let only_fetch = matches.value_of("fetch").is_some();
 
     let feeds = {
-        let mut file = OpenOptions::new()
-            .create(true)
-            .write(true)
-            .read(true)
-            .open(&config_path)?;
+        let mut file = match config_path {
+            ConfigPath::Central(ref path) =>
+                OpenOptions::new()
+                    .create(true)
+                    .write(true)
+                    .read(true)
+                    .open(path)?,
+            ConfigPath::Arg(ref path) =>
+                File::open(path)
+                .map_err(|_| {
+                    Error::Msg(format!("Cannot open file {:?}", path))
+                })?,
+        };
         let mut text = String::new();
         file.read_to_string(&mut text)?;
         parser::parse_config(&text)?
@@ -116,15 +124,30 @@ fn run() -> Result<(), Error> {
     Ok(())
 }
 
-fn get_config(path: Option<&str>) -> Result<PathBuf, Error> {
+#[derive(Debug)]
+enum ConfigPath {
+    Central(PathBuf),
+    Arg(PathBuf),
+}
+
+impl std::fmt::Display for ConfigPath {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match *self {
+            ConfigPath::Central(ref path) |
+            ConfigPath::Arg(ref path) => write!(fmt, "{:?}", path),
+        }
+    }
+}
+
+fn get_config(path: Option<&str>) -> Result<ConfigPath, Error> {
     if let Some(path) = path {
         debug!("Using config specified on command line: {}", path);
-        return Ok(path.into());
+        return Ok(ConfigPath::Arg(path.into()));
     }
 
     if let Ok(path) = std::env::var("FEEDBURST_CONFIG_PATH") {
         debug!("Using config specified as FEEDBURST_CONFIG_PATH: {}", path);
-        return Ok(path.into());
+        return Ok(ConfigPath::Central(path.into()));
     }
 
     #[cfg(unix)]
@@ -142,7 +165,7 @@ fn get_config(path: Option<&str>) -> Result<PathBuf, Error> {
 
     let path = fallback()?;
     debug!("Using config found from the XDG config dir: {:?}", path);
-    Ok(path)
+    Ok(ConfigPath::Central(path))
 }
 
 fn fetch_feed(feed_info: &FeedInfo) -> Result<Feed, Error> {
@@ -228,6 +251,7 @@ impl std::fmt::Display for Error {
     fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
         match *self {
             Error::Io(ref err) => write!(fmt, "IO error: {}", err),
+            Error::Msg(ref err) => write!(fmt, "Error: {}", err),
             Error::Parse(ref err) => write!(fmt, "Parse error: {:?}", err),
             Error::Request(ref err) => write!(fmt, "Request error: {}", err),
             Error::LoadFeed(ref err) => write!(fmt, "Error loading feed: {}", err),
@@ -240,6 +264,7 @@ impl std::fmt::Display for Error {
 #[derive(Debug)]
 pub enum Error {
     Io(std::io::Error),
+    Msg(String),
     Parse(parser::ParseError),
     ParseFeed(String),
     Request(reqwest::Error),
@@ -288,10 +313,17 @@ impl From<app_dirs::AppDirsError> for Error {
     }
 }
 
+impl From<String> for Error {
+    fn from(err: String) -> Error {
+        Error::Msg(err)
+    }
+}
+
 impl std::error::Error for Error {
     fn description(&self) -> &str {
         match *self {
             Error::Io(ref err) => err.description(),
+            Error::Msg(ref err) => &err,
             Error::Parse(ref _err) => "Error parsing config",
             Error::Request(ref err) => err.description(),
             Error::LoadFeed(ref err) => err.description(),
