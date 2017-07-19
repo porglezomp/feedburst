@@ -72,11 +72,22 @@ fn run() -> Result<(), Error> {
     let only_fetch = matches.value_of("fetch").is_some();
 
     let feeds = {
-        let mut file = File::open(config_path)?;
+        let mut file = OpenOptions::new()
+            .create(true)
+            .write(true)
+            .read(true)
+            .open(&config_path)?;
         let mut text = String::new();
         file.read_to_string(&mut text)?;
         parser::parse_config(&text)?
     };
+
+    if feeds.is_empty() {
+        println!(
+            "You're not following any comics. Add some to your config file at {:?}",
+            config_path,
+        );
+    }
 
     // @Performance: Use hyper to fetch streams concurrently
     let mut num_read = 0;
@@ -129,8 +140,9 @@ fn get_config(path: Option<&str>) -> Result<PathBuf, Error> {
         Ok(dir)
     }
 
+    let path = fallback()?;
     debug!("Using config found from the XDG config dir: {:?}", path);
-    fallback()
+    Ok(path)
 }
 
 fn fetch_feed(feed_info: &FeedInfo) -> Result<Feed, Error> {
