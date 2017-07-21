@@ -1,6 +1,8 @@
 # AppVeyor config from Ripgrep
 
 environment:
+  RUSTUP_USE_HYPER: 1
+  CARGO_HTTP_CHECK_REVOKE: false
   global:
     PROJECT_NAME: feedburst
     RUST_BACKTRACE: full

@@ -95,23 +95,41 @@ fn run() -> Result<(), Error> {
             "You're not following any comics. Add some to your config file at {:?}",
             config_path,
         );
+        return Ok(());
     }
 
-    // @Performance: Use hyper to fetch streams concurrently
-    let mut num_read = 0;
-    for feed_info in feeds {
-        let mut feed = match fetch_feed(&feed_info) {
-            Ok(feed) => feed,
-            Err(err) => {
-                println!("Error in feed {}: {}", feed_info.name, err);
-                continue;
-            }
-        };
+    // @Performance: Sort the feed info to put the most useful ones first
 
+    let rx = {
+        let (tx, rx) = std::sync::mpsc::channel();
+        const NUM_THREADS: usize = 4;
+        let mut groups = vec![vec![]; NUM_THREADS];
+        for (i, feed_info) in feeds.into_iter().enumerate() {
+            groups[i % NUM_THREADS].push(feed_info);
+        }
+
+        for group in groups {
+            let tx = tx.clone();
+            std::thread::spawn(move || {
+                for info in group {
+                    match fetch_feed(&info) {
+                        Ok(feed) => tx.send(feed).unwrap(),
+                        Err(err) => eprintln!("Error in feed {}: {}", info.name, err),
+                    }
+                }
+            });
+        }
+
+        rx
+    };
+
+    let mut num_read = 0;
+    for mut feed in rx {
         if feed.is_ready() && !only_fetch {
-            num_read += 1;
             if let Err(err) = read_feed(&mut feed) {
-                println!("Error in feed {}: {}", feed.info.name, err);
+                eprintln!("Error in feed {}: {}", feed.info.name, err);
+            } else {
+                num_read += 1;
             }
         }
     }
@@ -170,7 +188,10 @@ fn get_config(path: Option<&str>) -> Result<ConfigPath, Error> {
 
 fn fetch_feed(feed_info: &FeedInfo) -> Result<Feed, Error> {
     debug!("Fetching \"{}\" from <{}>", feed_info.name, feed_info.url);
-    let mut resp = reqwest::get(&feed_info.url)?;
+    let client = reqwest::ClientBuilder::new()?
+        .timeout(std::time::Duration::from_secs(5))
+        .build()?;
+    let mut resp = client.get(&feed_info.url)?.send()?;
     let mut content = String::new();
     resp.read_to_string(&mut content)?;
     let links: Vec<_> = {
