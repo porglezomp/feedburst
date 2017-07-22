@@ -1,9 +1,5 @@
 use std::{io, fmt};
 use reqwest;
-#[cfg(unix)]
-use xdg;
-#[cfg(windows)]
-use app_dirs;
 
 #[derive(Debug)]
 pub enum Error {
@@ -71,19 +67,5 @@ impl From<io::Error> for Error {
 impl From<reqwest::Error> for Error {
     fn from(err: reqwest::Error) -> Error {
         Error::Request(err)
-    }
-}
-
-#[cfg(unix)]
-impl From<xdg::BaseDirectoriesError> for Error {
-    fn from(err: xdg::BaseDirectoriesError) -> Error {
-        Error::Msg(format!("{}", err))
-    }
-}
-
-#[cfg(windows)]
-impl From<app_dirs::AppDirsError> for Error {
-    fn from(err: app_dirs::AppDirsError) -> Error {
-        Error::Msg(format!("{}", err))
     }
 }
