@@ -1,8 +1,6 @@
 #[macro_use]
 extern crate log;
 extern crate pretty_env_logger;
-#[macro_use]
-extern crate nom;
 extern crate reqwest;
 extern crate syndication;
 extern crate chrono;

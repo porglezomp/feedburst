@@ -1,7 +1,6 @@
 use std::collections::HashSet;
 use std::iter::FromIterator;
 
-use nom::{space, digit, IResult};
 use chrono::Weekday;
 
 use feed::{FeedInfo, UpdateSpec, FeedEvent};
@@ -77,7 +76,7 @@ fn parse_policies(row: usize, col: usize, input: &str) -> Result<Vec<UpdateSpec>
 
     let mut col = start_col;
     for policy_chunk in input[start_col+1..].split('@') {
-        out.push(parse_policy(row, col, policy_chunk)?);
+        out.push(parse_policy(row, col, &policy_chunk.to_lowercase())?);
         col += 1 + policy_chunk.len();
     }
 
@@ -86,76 +85,83 @@ fn parse_policies(row: usize, col: usize, input: &str) -> Result<Vec<UpdateSpec>
 
 fn parse_policy(row: usize, col: usize, input: &str) -> Result<UpdateSpec, ParseError> {
     let self_span = (col, col + input.len());
-    match feed_update(input) {
-        IResult::Done("", policy) => Ok(policy),
-        _ => Err(ParseError::expected(r#"a policy definition. One of:
+    let error = ParseError::expected(r#"a policy definition. One of:
  - "@ on WEEKDAY"
  - "@ every # day(s)"
  - "@ # new comic(s)"
- - "@ overlap # comic(s)""#, row, self_span)),
+ - "@ overlap # comic(s)""#, row, self_span);
+
+    let input = input.trim();
+    if input.starts_with("on ") {
+        let input = input["on ".len()..].trim_left();
+        let weekday = match parse_weekday(input) {
+            Ok((weekday, input)) if input.trim().is_empty() => weekday,
+            _ => return Err(error),
+        };
+        Ok(UpdateSpec::On(weekday))
+    } else if input.starts_with("every ") {
+        let input = input["every ".len()..].trim_left();
+        let (count, input) = match parse_number(input) {
+            Ok(pair) => pair,
+            Err(()) => return Err(error),
+        };
+        let input = input.trim();
+        if !(input == "day" || input == "days") {
+            return Err(error);
+        }
+        Ok(UpdateSpec::Every(count))
+    } else if input.starts_with("overlap ") {
+        let input = input["overlap ".len()..].trim_left();
+        let (count, input) = match parse_number(input) {
+            Ok(pair) => pair,
+            Err(()) => return Err(error),
+        };
+        let input = input.trim();
+        if !(input == "comic" || input == "comics") {
+            return Err(error);
+        }
+        Ok(UpdateSpec::Overlap(count))
+    } else if input.chars().next().map(|x| x.is_digit(10)).unwrap_or(false) {
+        let (count, input) = match parse_number(input) {
+            Ok(pair) => pair,
+            Err(()) => return Err(error),
+        };
+        let input = input.trim();
+        if !(input == "new comic" || input == "new comics") {
+            return Err(error);
+        }
+        Ok(UpdateSpec::Comics(count))
+    } else {
+        Err(error)
     }
 }
 
-named!(number<&str, usize>, complete!(map_res!(digit, |x: &str| x.parse())));
+fn parse_number(input: &str) -> Result<(usize, &str), ()> {
+    let split_point = input.find(char::is_whitespace).ok_or(())?;
+    let (prefix, suffix) = input.split_at(split_point);
+    let value = prefix.parse().map_err(|_| ())?;
+    Ok((value, suffix))
+}
 
-named!(feed_update<&str, UpdateSpec>,
-    do_parse!(
-        opt!(complete!(space)) >>
-        res: alt_complete!(
-            do_parse!(
-                tag_no_case_s!("on") >>
-                space >>
-                weekday: weekday >>
-
-                (UpdateSpec::On(weekday))
-            ) |
-            do_parse!(
-                tag_no_case_s!("every") >>
-                space >>
-                num_days: number >>
-                space >>
-                tag_no_case_s!("day") >>
-                opt!(complete!(char!('s'))) >>
-
-                (UpdateSpec::Every(num_days))
-            ) |
-            do_parse!(
-                num_comics: number >>
-                space >>
-                tag_no_case!("new") >>
-                space >>
-                tag_no_case!("comic") >>
-                opt!(complete!(char!('s'))) >>
-
-                (UpdateSpec::Comics(num_comics))
-            ) |
-            do_parse!(
-                tag_no_case_s!("overlap") >>
-                space >>
-                num_comics: number >>
-                space >>
-                tag_no_case!("comic") >>
-                opt!(complete!(char!('s'))) >>
-
-                (UpdateSpec::Overlap(num_comics))
-            )
-        ) >>
-        opt!(complete!(space)) >>
-        (res)
-    )
-);
-
-named!(weekday<&str, Weekday>,
-    alt_complete!(
-        tag_no_case_s!("sunday") => { |_| Weekday::Sun } |
-        tag_no_case_s!("monday") => { |_| Weekday::Mon } |
-        tag_no_case_s!("tuesday") => { |_| Weekday::Tue } |
-        tag_no_case_s!("wednesday") => { |_| Weekday::Wed } |
-        tag_no_case_s!("thursday") => { |_| Weekday::Thu } |
-        tag_no_case_s!("friday") => { |_| Weekday::Fri } |
-        tag_no_case_s!("saturday") => { |_| Weekday::Sat }
-    )
-);
+fn parse_weekday(input: &str) -> Result<(Weekday, &str), ()> {
+    if input.starts_with("sunday") {
+        Ok((Weekday::Sun, &input["sunday".len()..]))
+    } else if input.starts_with("monday") {
+        Ok((Weekday::Mon, &input["monday".len()..]))
+    } else if input.starts_with("tuesday") {
+        Ok((Weekday::Tue, &input["tuesday".len()..]))
+    } else if input.starts_with("wednesday") {
+        Ok((Weekday::Wed, &input["wednesday".len()..]))
+    } else if input.starts_with("thursday") {
+        Ok((Weekday::Thu, &input["thursday".len()..]))
+    } else if input.starts_with("friday") {
+        Ok((Weekday::Fri, &input["friday".len()..]))
+    } else if input.starts_with("saturday") {
+        Ok((Weekday::Sat, &input["saturday".len()..]))
+    } else {
+        Err(())
+    }
+}
 
 #[test]
 fn test_config_parser() {
