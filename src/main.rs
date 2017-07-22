@@ -7,13 +7,8 @@ extern crate chrono;
 extern crate clap;
 extern crate open;
 
-// I don't want to put config in ~/Library/... on Mac, so we use XDG there too
 #[cfg(unix)]
 extern crate xdg;
-#[cfg(windows)]
-extern crate app_dirs;
-
-// @Polish: Change error println!() to eprintln!()
 
 use std::io::Read;
 use std::str::FromStr;
@@ -21,26 +16,20 @@ use std::fs::{File, OpenOptions};
 use std::path::PathBuf;
 
 use clap::{Arg, App};
-#[cfg(windows)]
-use app_dirs::{AppInfo, AppDataType, get_app_dir, get_app_root};
 
 mod parser;
 mod feed;
 mod error;
+mod config;
 
 use feed::{Feed, FeedInfo};
 use error::{Error, ParseError, Span};
 
 const APP_NAME: &'static str = "feedburst";
-#[cfg(windows)]
-const APP_INFO: AppInfo = AppInfo {
-    name: APP_NAME,
-    author: "porglezomp",
-};
 
 fn main() {
     if let Err(err) = run() {
-        println!("{}", err);
+        eprintln!("{}", err);
         std::process::exit(1);
     }
 }
@@ -115,7 +104,7 @@ fn run() -> Result<(), Error> {
 
     if feeds.is_empty() {
         println!(
-            "You're not following any comics. Add some to your config file at {:?}",
+            "You're not following any comics. Add some to your config file at {}",
             config_path,
         );
         return Ok(());
@@ -175,7 +164,7 @@ impl std::fmt::Display for ConfigPath {
     fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
         match *self {
             ConfigPath::Central(ref path) |
-            ConfigPath::Arg(ref path) => write!(fmt, "{:?}", path),
+            ConfigPath::Arg(ref path) => write!(fmt, "{}", path.to_string_lossy()),
         }
     }
 }
@@ -191,20 +180,7 @@ fn get_config(path: Option<&str>) -> Result<ConfigPath, Error> {
         return Ok(ConfigPath::Central(path.into()));
     }
 
-    #[cfg(unix)]
-    fn fallback() -> Result<PathBuf, Error> {
-        Ok(xdg::BaseDirectories::with_prefix(APP_NAME)?
-           .place_config_file("config.feeds")?)
-    }
-
-    #[cfg(windows)]
-    fn fallback() -> Result<PathBuf, Error> {
-        let mut dir = get_app_root(AppDataType::UserConfig, &APP_INFO)?;
-        dir.push("config.feeds");
-        Ok(dir)
-    }
-
-    let path = fallback()?;
+    let path = config::get_config_path()?;
     debug!("Using config found from the XDG config dir: {:?}", path);
     Ok(ConfigPath::Central(path))
 }
@@ -249,21 +225,7 @@ fn fetch_feed(feed_info: &FeedInfo) -> Result<Feed, Error> {
 }
 
 fn feed_info_file(feed_info: &FeedInfo) -> Result<File, Error> {
-    #[cfg(unix)]
-    fn get_path(name: &str) -> Result<PathBuf, Error> {
-        let path = format!("feeds/{}.feed", name);
-        Ok(xdg::BaseDirectories::with_prefix(APP_NAME)?
-           .place_data_file(&path)?)
-    }
-
-    #[cfg(windows)]
-    fn get_path(name: &str) -> Result<PathBuf, Error> {
-        let mut path = get_app_dir(AppDataType::UserData, &APP_INFO, "feeds")?;
-        path.push(format!("{}.feed", name));
-        Ok(path)
-    }
-
-    let path = get_path(&feed_info.name)?;
+    let path = config::get_feed_path(&feed_info.name)?;
 
     OpenOptions::new()
         .read(true)
