@@ -14,7 +14,7 @@ pub fn parse_config(input: &str) -> Result<Vec<FeedInfo>, ParseError> {
     let mut out = Vec::new();
     for (row, line) in input.lines().enumerate() {
         if let Some(col) = line.find(|x| x != ' ' && x != '\t') {
-            if line[col..].chars().next() != Some('#') {
+            if !line[col..].starts_with('#') {
                 out.push(parse_line(row, col, line)?);
             }
         }
@@ -45,7 +45,7 @@ fn parse_name(row: usize, col: usize, input: &str) -> Result<(usize, String), Pa
         Some(off) => off + col,
         None => return Err(ParseError::expected_char('"', row, None)),
     };
-    if input[start_col..].chars().next() != Some('"') {
+    if !input[start_col..].starts_with('"') {
         return Err(ParseError::expected_char('"', row, start_col));
     }
     let end_col = find_char(row, start_col+1, input, '"')?;
@@ -57,7 +57,7 @@ fn parse_url(row: usize, col: usize, input: &str) -> Result<(usize, String), Par
         Some(off) => off + col,
         None => return Err(ParseError::expected_char('<', row, None)),
     };
-    if input[start_col..].chars().next() != Some('<') {
+    if !input[start_col..].starts_with('<') {
         return Err(ParseError::expected_char('<', row, start_col));
     }
     let end_col = find_char(row, start_col+1, input, '>')?;
@@ -70,7 +70,7 @@ fn parse_policies(row: usize, col: usize, input: &str) -> Result<Vec<UpdateSpec>
         Some(off) => col + off,
         None => return Ok(out),
     };
-    if input[start_col..].chars().next() != Some('@') {
+    if !input[start_col..].starts_with('@') {
         return Err(ParseError::expected_char('@', row, start_col));
     }
 
@@ -239,8 +239,8 @@ pub fn parse_events(input: &str) -> Result<Vec<FeedEvent>, ParseError> {
                 }
             };
             result.push(FeedEvent::Read(date))
-        } else if line[start_pos..].starts_with("<") {
-            if !line.ends_with(">") {
+        } else if line[start_pos..].starts_with('<') {
+            if !line.ends_with('>') {
                 return Err(ParseError::expected_char('>', row, line.len()));
             }
             let url = &line[start_pos+1..line.len()-1];

@@ -217,7 +217,7 @@ fn fetch_feed(feed_info: &FeedInfo) -> Result<Feed, Error> {
         }
     };
 
-    let mut file = feed_info_file(&feed_info)?;
+    let mut file = feed_info_file(feed_info)?;
     let mut feed = feed_info.read_feed(&mut file)?;
     feed.add_new_comics(&links);
     feed.write_changes(&mut file)?;
@@ -238,7 +238,7 @@ fn feed_info_file(feed_info: &FeedInfo) -> Result<File, Error> {
 fn read_feed(feed: &mut Feed) -> Result<(), Error> {
     let mut file = feed_info_file(&feed.info)?;
     let items = feed.get_reading_list();
-    if items.len() == 0 {
+    if items.is_empty() {
         return Ok(());
     }
     let plural_feeds = if items.len() == 1 {
