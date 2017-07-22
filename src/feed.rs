@@ -43,8 +43,8 @@ impl FeedInfo {
 
         let events = match parse_events(&string) {
             Ok(events) => events,
-            Err(ParseError::Expected { character, row, span }) => {
-                let msg = format!("'{}'", character);
+            Err(ParseError::Expected { chr, row, span }) => {
+                let msg = format!("'{}'", chr);
                 return Err(make_error_message(row, span, &msg));
             }
             Err(ParseError::ExpectedMsg { msg, row, span }) => {
@@ -117,7 +117,12 @@ impl Feed {
         for policy in &self.info.updates {
             match *policy {
                 UpdateSpec::Every(num_days) => {
-                    trace!("Rule for \"{}\": @ every {} days (has been {})", self.info.name, num_days, elapsed_time.num_days());
+                    trace!(
+                        "Rule for \"{}\": @ every {} days (has been {})",
+                        self.info.name,
+                        num_days,
+                        elapsed_time.num_days()
+                    );
                     if elapsed_time.num_days() < num_days as i64 {
                         debug!("Skipping \"{}\" because of @every", self.info.name);
                         return false;
@@ -125,7 +130,12 @@ impl Feed {
                     trace!("Rule passed!");
                 }
                 UpdateSpec::Comics(num_comics) => {
-                    trace!("Rule for \"{}\": @ {} new comics (has {})", self.info.name, num_comics, self.new_comics);
+                    trace!(
+                        "Rule for \"{}\": @ {} new comics (has {})",
+                        self.info.name,
+                        num_comics,
+                        self.new_comics
+                    );
                     if self.new_comics < num_comics {
                         debug!("Skipping \"{}\" because of @comics", self.info.name);
                         return false;
@@ -168,7 +178,10 @@ impl Feed {
                 FeedEvent::Read(date) => writeln!(writer, "read {}", date.to_rfc3339())?,
             }
         }
-        trace!("Wrote changes for \"{}\", new events moved to old", self.info.name);
+        trace!(
+            "Wrote changes for \"{}\", new events moved to old",
+            self.info.name
+        );
         self.events.append(&mut self.new_events);
         Ok(())
     }
@@ -180,7 +193,11 @@ impl Feed {
                 additional = ::std::cmp::max(n, additional);
             }
         }
-        trace!("Reading list for \"{}\", overlap {}", self.info.name, additional);
+        trace!(
+            "Reading list for \"{}\", overlap {}",
+            self.info.name,
+            additional
+        );
         let mut finishing = false;
         let mut result = Vec::new();
         for event in self.events.iter().chain(&self.new_events).rev() {
@@ -200,9 +217,12 @@ impl Feed {
                 }
             }
         }
-        debug!("Reading list for \"{}\" has {}", self.info.name, result.len());
+        debug!(
+            "Reading list for \"{}\" has {}",
+            self.info.name,
+            result.len()
+        );
         result.reverse();
         result
     }
 }
-

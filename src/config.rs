@@ -34,8 +34,9 @@ fn app_data_dir() -> Result<PathBuf, Error> {
 #[cfg(windows)]
 pub fn get_feed_path(name: &str) -> Result<PathBuf, Error> {
     let path = app_data_dir()?.join("feeds");
-    ::std::fs::create_dir_all(&path)
-        .map_err(|_| Error::Msg(format!("Error creating directory {:?}", path)))?;
+    ::std::fs::create_dir_all(&path).map_err(|_| {
+        Error::Msg(format!("Error creating directory {:?}", path))
+    })?;
     let fname = format!("{}.feed", name);
     Ok(path.join(fname))
 }
@@ -43,7 +44,8 @@ pub fn get_feed_path(name: &str) -> Result<PathBuf, Error> {
 #[cfg(windows)]
 pub fn get_config_path() -> Result<PathBuf, Error> {
     let path = app_data_dir()?;
-    ::std::fs::create_dir_all(&path)
-        .map_err(|_| Error::Msg(format!("Error creating directory {:?}", path)))?;
+    ::std::fs::create_dir_all(&path).map_err(|_| {
+        Error::Msg(format!("Error creating directory {:?}", path))
+    })?;
     Ok(path.join("config.feeds"))
 }

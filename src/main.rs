@@ -47,11 +47,9 @@ fn run() -> Result<(), Error> {
                 .help("The config file to load feeds from")
                 .takes_value(true),
         )
-        .arg(
-            Arg::with_name("fetch")
-                .long("fetch")
-                .help("Only download feeds, don't view them"),
-        )
+        .arg(Arg::with_name("fetch").long("fetch").help(
+            "Only download feeds, don't view them",
+        ))
         .get_matches();
 
     let config_path = get_config(matches.value_of("config"))?;
@@ -59,17 +57,18 @@ fn run() -> Result<(), Error> {
 
     let feeds = {
         let mut file = match config_path {
-            ConfigPath::Central(ref path) =>
+            ConfigPath::Central(ref path) => {
                 OpenOptions::new()
                     .create(true)
                     .write(true)
                     .read(true)
-                    .open(path)?,
-            ConfigPath::Arg(ref path) =>
-                File::open(path)
-                .map_err(|_| {
+                    .open(path)?
+            }
+            ConfigPath::Arg(ref path) => {
+                File::open(path).map_err(|_| {
                     Error::Msg(format!("Cannot open file {:?}", path))
-                })?,
+                })?
+            }
         };
         let mut text = String::new();
         file.read_to_string(&mut text)?;
@@ -92,8 +91,8 @@ fn run() -> Result<(), Error> {
 
         match parser::parse_config(&text) {
             Ok(feeds) => feeds,
-            Err(ParseError::Expected { character, row, span }) => {
-                let msg = format!("'{}'", character);
+            Err(ParseError::Expected { chr, row, span }) => {
+                let msg = format!("'{}'", chr);
                 return Err(make_error_message(row, span, &msg));
             }
             Err(ParseError::ExpectedMsg { msg, row, span }) => {
@@ -122,12 +121,10 @@ fn run() -> Result<(), Error> {
 
         for group in groups {
             let tx = tx.clone();
-            std::thread::spawn(move || {
-                for info in group {
-                    match fetch_feed(&info) {
-                        Ok(feed) => tx.send(feed).unwrap(),
-                        Err(err) => eprintln!("Error in feed {}: {}", info.name, err),
-                    }
+            std::thread::spawn(move || for info in group {
+                match fetch_feed(&info) {
+                    Ok(feed) => tx.send(feed).unwrap(),
+                    Err(err) => eprintln!("Error in feed {}: {}", info.name, err),
                 }
             });
         }
@@ -195,8 +192,7 @@ fn fetch_feed(feed_info: &FeedInfo) -> Result<Feed, Error> {
     resp.read_to_string(&mut content)?;
     let links: Vec<_> = {
         use syndication::Feed;
-        match Feed::from_str(&content)
-            .map_err(|x| Error::Msg(x.into()))? {
+        match Feed::from_str(&content).map_err(|x| Error::Msg(x.into()))? {
             Feed::Atom(feed) => {
                 debug!("Parsed feed <{}> as Atom", feed_info.url);
                 feed.entries
@@ -206,7 +202,7 @@ fn fetch_feed(feed_info: &FeedInfo) -> Result<Feed, Error> {
                     .map(|x| x.href)
                     .collect()
             }
-            Feed::RSS( feed) => {
+            Feed::RSS(feed) => {
                 debug!("Parsed feed <{}> as RSS", feed_info.url);
                 feed.items
                     .into_iter()
@@ -241,11 +237,7 @@ fn read_feed(feed: &mut Feed) -> Result<(), Error> {
     if items.is_empty() {
         return Ok(());
     }
-    let plural_feeds = if items.len() == 1 {
-        "comic"
-    } else {
-        "comics"
-    };
+    let plural_feeds = if items.len() == 1 { "comic" } else { "comics" };
     println!("{} ({} {})", feed.info.name, items.len(), plural_feeds);
     open::that(items.first().unwrap())?;
     feed.read();
