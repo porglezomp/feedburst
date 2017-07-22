@@ -69,7 +69,19 @@ fn run() -> Result<(), Error> {
     let only_fetch = matches.value_of("fetch").is_some();
 
     let feeds = {
-        let mut file = File::open(&config_path)?;
+        let mut file = match config_path {
+            ConfigPath::Central(ref path) =>
+                OpenOptions::new()
+                    .create(true)
+                    .write(true)
+                    .read(true)
+                    .open(path)?,
+            ConfigPath::Arg(ref path) =>
+                File::open(path)
+                .map_err(|_| {
+                    Error::Msg(format!("Cannot open file {:?}", path))
+                })?,
+        };
         let mut text = String::new();
         file.read_to_string(&mut text)?;
 
@@ -101,21 +113,46 @@ fn run() -> Result<(), Error> {
         }
     };
 
-    // @Performance: Use hyper to fetch streams concurrently
-    let mut num_read = 0;
-    for feed_info in feeds {
-        let mut feed = match fetch_feed(&feed_info) {
-            Ok(feed) => feed,
-            Err(err) => {
-                println!("Error in feed {}: {}", feed_info.name, err);
-                continue;
-            }
-        };
+    if feeds.is_empty() {
+        println!(
+            "You're not following any comics. Add some to your config file at {:?}",
+            config_path,
+        );
+        return Ok(());
+    }
 
+    // @Performance: Sort the feed info to put the most useful ones first
+
+    let rx = {
+        let (tx, rx) = std::sync::mpsc::channel();
+        const NUM_THREADS: usize = 4;
+        let mut groups = vec![vec![]; NUM_THREADS];
+        for (i, feed_info) in feeds.into_iter().enumerate() {
+            groups[i % NUM_THREADS].push(feed_info);
+        }
+
+        for group in groups {
+            let tx = tx.clone();
+            std::thread::spawn(move || {
+                for info in group {
+                    match fetch_feed(&info) {
+                        Ok(feed) => tx.send(feed).unwrap(),
+                        Err(err) => eprintln!("Error in feed {}: {}", info.name, err),
+                    }
+                }
+            });
+        }
+
+        rx
+    };
+
+    let mut num_read = 0;
+    for mut feed in rx {
         if feed.is_ready() && !only_fetch {
-            num_read += 1;
             if let Err(err) = read_feed(&mut feed) {
-                println!("Error in feed {}: {}", feed.info.name, err);
+                eprintln!("Error in feed {}: {}", feed.info.name, err);
+            } else {
+                num_read += 1;
             }
         }
     }
@@ -128,15 +165,30 @@ fn run() -> Result<(), Error> {
     Ok(())
 }
 
-fn get_config(path: Option<&str>) -> Result<PathBuf, Error> {
+#[derive(Debug)]
+enum ConfigPath {
+    Central(PathBuf),
+    Arg(PathBuf),
+}
+
+impl std::fmt::Display for ConfigPath {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match *self {
+            ConfigPath::Central(ref path) |
+            ConfigPath::Arg(ref path) => write!(fmt, "{:?}", path),
+        }
+    }
+}
+
+fn get_config(path: Option<&str>) -> Result<ConfigPath, Error> {
     if let Some(path) = path {
         debug!("Using config specified on command line: {}", path);
-        return Ok(path.into());
+        return Ok(ConfigPath::Arg(path.into()));
     }
 
     if let Ok(path) = std::env::var("FEEDBURST_CONFIG_PATH") {
         debug!("Using config specified as FEEDBURST_CONFIG_PATH: {}", path);
-        return Ok(path.into());
+        return Ok(ConfigPath::Central(path.into()));
     }
 
     #[cfg(unix)]
@@ -152,13 +204,17 @@ fn get_config(path: Option<&str>) -> Result<PathBuf, Error> {
         Ok(dir)
     }
 
+    let path = fallback()?;
     debug!("Using config found from the XDG config dir: {:?}", path);
-    fallback()
+    Ok(ConfigPath::Central(path))
 }
 
 fn fetch_feed(feed_info: &FeedInfo) -> Result<Feed, Error> {
     debug!("Fetching \"{}\" from <{}>", feed_info.name, feed_info.url);
-    let mut resp = reqwest::get(&feed_info.url)?;
+    let client = reqwest::ClientBuilder::new()?
+        .timeout(std::time::Duration::from_secs(5))
+        .build()?;
+    let mut resp = client.get(&feed_info.url)?.send()?;
     let mut content = String::new();
     resp.read_to_string(&mut content)?;
     let links: Vec<_> = {
