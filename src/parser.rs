@@ -230,11 +230,11 @@ pub fn parse_events(input: &str) -> Result<Vec<FeedEvent>, ParseError> {
             None => continue,
         };
 
-        if line[start_pos..].starts_with("read") {
-            let date = match line[start_pos+5..].parse() {
+        if line[start_pos..].starts_with("read ") {
+            let date = match line[start_pos + "read ".len()..].parse() {
                 Ok(date) => date,
                 Err(_) => {
-                    let span = (start_pos + 5, line.len());
+                    let span = (start_pos + "read ".len(), line.len());
                     return Err(ParseError::expected("a valid date.", row, span));
                 }
             };
