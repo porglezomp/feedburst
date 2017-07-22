@@ -14,7 +14,7 @@ pub fn parse_config(input: &str) -> Result<Vec<FeedInfo>, ParseError> {
     let mut out = Vec::new();
     for (row, line) in input.lines().enumerate() {
         if let Some(col) = line.find(|x| x != ' ' && x != '\t') {
-            if line[col..].chars().next() != Some('#') {
+            if !line[col..].starts_with('#') {
                 out.push(parse_line(row, col, line)?);
             }
         }
@@ -45,11 +45,11 @@ fn parse_name(row: usize, col: usize, input: &str) -> Result<(usize, String), Pa
         Some(off) => off + col,
         None => return Err(ParseError::expected_char('"', row, None)),
     };
-    if input[start_col..].chars().next() != Some('"') {
+    if !input[start_col..].starts_with('"') {
         return Err(ParseError::expected_char('"', row, start_col));
     }
-    let end_col = find_char(row, start_col+1, input, '"')?;
-    Ok((end_col+1, input[start_col+1..end_col].into()))
+    let end_col = find_char(row, start_col + 1, input, '"')?;
+    Ok((end_col + 1, input[start_col + 1..end_col].into()))
 }
 
 fn parse_url(row: usize, col: usize, input: &str) -> Result<(usize, String), ParseError> {
@@ -57,11 +57,11 @@ fn parse_url(row: usize, col: usize, input: &str) -> Result<(usize, String), Par
         Some(off) => off + col,
         None => return Err(ParseError::expected_char('<', row, None)),
     };
-    if input[start_col..].chars().next() != Some('<') {
+    if !input[start_col..].starts_with('<') {
         return Err(ParseError::expected_char('<', row, start_col));
     }
-    let end_col = find_char(row, start_col+1, input, '>')?;
-    Ok((end_col+1, input[start_col+1..end_col].into()))
+    let end_col = find_char(row, start_col + 1, input, '>')?;
+    Ok((end_col + 1, input[start_col + 1..end_col].into()))
 }
 
 fn parse_policies(row: usize, col: usize, input: &str) -> Result<Vec<UpdateSpec>, ParseError> {
@@ -70,12 +70,12 @@ fn parse_policies(row: usize, col: usize, input: &str) -> Result<Vec<UpdateSpec>
         Some(off) => col + off,
         None => return Ok(out),
     };
-    if input[start_col..].chars().next() != Some('@') {
+    if !input[start_col..].starts_with('@') {
         return Err(ParseError::expected_char('@', row, start_col));
     }
 
     let mut col = start_col;
-    for policy_chunk in input[start_col+1..].split('@') {
+    for policy_chunk in input[start_col + 1..].split('@') {
         out.push(parse_policy(row, col, &policy_chunk.to_lowercase())?);
         col += 1 + policy_chunk.len();
     }
@@ -85,11 +85,15 @@ fn parse_policies(row: usize, col: usize, input: &str) -> Result<Vec<UpdateSpec>
 
 fn parse_policy(row: usize, col: usize, input: &str) -> Result<UpdateSpec, ParseError> {
     let self_span = (col, col + input.len());
-    let error = ParseError::expected(r#"a policy definition. One of:
+    let error = ParseError::expected(
+        r#"a policy definition. One of:
  - "@ on WEEKDAY"
  - "@ every # day(s)"
  - "@ # new comic(s)"
- - "@ overlap # comic(s)""#, row, self_span);
+ - "@ overlap # comic(s)""#,
+        row,
+        self_span,
+    );
 
     let input = input.trim();
     if input.starts_with("on ") {
@@ -121,7 +125,10 @@ fn parse_policy(row: usize, col: usize, input: &str) -> Result<UpdateSpec, Parse
             return Err(error);
         }
         Ok(UpdateSpec::Overlap(count))
-    } else if input.chars().next().map(|x| x.is_digit(10)).unwrap_or(false) {
+    } else if input.chars().next().map(|x| x.is_digit(10)).unwrap_or(
+        false,
+    )
+    {
         let (count, input) = match parse_number(input) {
             Ok(pair) => pair,
             Err(()) => return Err(error),
@@ -204,18 +211,16 @@ fn test_config_parser() {
             FeedInfo {
                 name: "Electrum".into(),
                 url: "https://electrum.cubemelon.net/feed".into(),
-                updates: HashSet::from_iter(vec![
-                    UpdateSpec::Comics(5),
-                    UpdateSpec::On(Weekday::Thu),
-                ]),
+                updates: HashSet::from_iter(
+                    vec![UpdateSpec::Comics(5), UpdateSpec::On(Weekday::Thu)]
+                ),
             },
             FeedInfo {
                 name: "Gunnerkrigg Court".into(),
                 url: "http://gunnerkrigg.com/rss.xml".into(),
-                updates: HashSet::from_iter(vec![
-                    UpdateSpec::Comics(4),
-                    UpdateSpec::On(Weekday::Tue),
-                ]),
+                updates: HashSet::from_iter(
+                    vec![UpdateSpec::Comics(4), UpdateSpec::On(Weekday::Tue)]
+                ),
             },
         ])
     )
@@ -239,16 +244,20 @@ pub fn parse_events(input: &str) -> Result<Vec<FeedEvent>, ParseError> {
                 }
             };
             result.push(FeedEvent::Read(date))
-        } else if line[start_pos..].starts_with("<") {
-            if !line.ends_with(">") {
+        } else if line[start_pos..].starts_with('<') {
+            if !line.ends_with('>') {
                 return Err(ParseError::expected_char('>', row, line.len()));
             }
-            let url = &line[start_pos+1..line.len()-1];
+            let url = &line[start_pos + 1..line.len() - 1];
             result.push(FeedEvent::ComicUrl(url.into()));
         } else {
-            return Err(ParseError::expected(r#"a feed event. One of:
+            return Err(ParseError::expected(
+                r#"a feed event. One of:
  - "<url>"
- - "read DATE""#, row, None));
+ - "read DATE""#,
+                row,
+                None,
+            ));
         }
     }
     Ok(result)
