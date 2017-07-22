@@ -1,8 +1,6 @@
 #[macro_use]
 extern crate log;
 extern crate pretty_env_logger;
-#[macro_use]
-extern crate nom;
 extern crate reqwest;
 extern crate syndication;
 extern crate chrono;
@@ -28,8 +26,10 @@ use app_dirs::{AppInfo, AppDataType, get_app_dir, get_app_root};
 
 mod parser;
 mod feed;
+mod error;
 
 use feed::{Feed, FeedInfo};
+use error::{Error, ParseError, Span};
 
 const APP_NAME: &'static str = "feedburst";
 #[cfg(windows)]
@@ -39,13 +39,10 @@ const APP_INFO: AppInfo = AppInfo {
 };
 
 fn main() {
-    std::process::exit(match run() {
-        Ok(()) => 0,
-        Err(err) => {
-            println!("Error: {}", err);
-            1
-        }
-    })
+    if let Err(err) = run() {
+        println!("{}", err);
+        std::process::exit(1);
+    }
 }
 
 fn run() -> Result<(), Error> {
@@ -87,7 +84,33 @@ fn run() -> Result<(), Error> {
         };
         let mut text = String::new();
         file.read_to_string(&mut text)?;
-        parser::parse_config(&text)?
+
+        let make_error_message = |row: usize, span: Span, msg: &str| -> Error {
+            let mut message = format!("Line {}: Error parsing {:?}\n\n", row, config_path);
+            let line = text.lines().nth(row).unwrap_or_default();
+            message.push_str(&format!("{}\n", line));
+            match span {
+                None => message.push('\n'),
+                Some((l, r)) => {
+                    let underline = format!("{}{}\n", " ".repeat(l), "^".repeat(r - l + 1));
+                    message.push_str(&underline);
+                }
+            }
+
+            message.push_str(&format!("Expected {}", msg));
+            Error::Msg(message)
+        };
+
+        match parser::parse_config(&text) {
+            Ok(feeds) => feeds,
+            Err(ParseError::Expected { character, row, span }) => {
+                let msg = format!("'{}'", character);
+                return Err(make_error_message(row, span, &msg));
+            }
+            Err(ParseError::ExpectedMsg { msg, row, span }) => {
+                return Err(make_error_message(row, span, &msg));
+            }
+        }
     };
 
     if feeds.is_empty() {
@@ -197,7 +220,7 @@ fn fetch_feed(feed_info: &FeedInfo) -> Result<Feed, Error> {
     let links: Vec<_> = {
         use syndication::Feed;
         match Feed::from_str(&content)
-            .map_err(|x| Error::ParseFeed(x.into()))? {
+            .map_err(|x| Error::Msg(x.into()))? {
             Feed::Atom(feed) => {
                 debug!("Parsed feed <{}> as Atom", feed_info.url);
                 feed.entries
@@ -266,93 +289,4 @@ fn read_feed(feed: &mut Feed) -> Result<(), Error> {
     feed.read();
     feed.write_changes(&mut file)?;
     Ok(())
-}
-
-impl std::fmt::Display for Error {
-    fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match *self {
-            Error::Io(ref err) => write!(fmt, "IO error: {}", err),
-            Error::Msg(ref err) => write!(fmt, "Error: {}", err),
-            Error::Parse(ref err) => write!(fmt, "Parse error: {:?}", err),
-            Error::Request(ref err) => write!(fmt, "Request error: {}", err),
-            Error::LoadFeed(ref err) => write!(fmt, "Error loading feed: {}", err),
-            Error::ParseFeed(ref err) => write!(fmt, "Error parsing feed: {}", err),
-            Error::BaseDirectory(ref err) => write!(fmt, "Error getting base dir: {}", err),
-        }
-    }
-}
-
-#[derive(Debug)]
-pub enum Error {
-    Io(std::io::Error),
-    Msg(String),
-    Parse(parser::ParseError),
-    ParseFeed(String),
-    Request(reqwest::Error),
-    LoadFeed(feed::LoadFeedError),
-    #[cfg(unix)]
-    BaseDirectory(xdg::BaseDirectoriesError),
-    #[cfg(windows)]
-    BaseDirectory(app_dirs::AppDirsError),
-}
-
-impl From<std::io::Error> for Error {
-    fn from(err: std::io::Error) -> Error {
-        Error::Io(err)
-    }
-}
-
-impl From<parser::ParseError> for Error {
-    fn from(err: parser::ParseError) -> Error {
-        Error::Parse(err)
-    }
-}
-
-impl From<feed::LoadFeedError> for Error {
-    fn from(err: feed::LoadFeedError) -> Error {
-        Error::LoadFeed(err)
-    }
-}
-
-impl From<reqwest::Error> for Error {
-    fn from(err: reqwest::Error) -> Error {
-        Error::Request(err)
-    }
-}
-
-#[cfg(unix)]
-impl From<xdg::BaseDirectoriesError> for Error {
-    fn from(err: xdg::BaseDirectoriesError) -> Error {
-        Error::BaseDirectory(err)
-    }
-}
-
-#[cfg(windows)]
-impl From<app_dirs::AppDirsError> for Error {
-    fn from(err: app_dirs::AppDirsError) -> Error {
-        Error::BaseDirectory(err)
-    }
-}
-
-impl From<String> for Error {
-    fn from(err: String) -> Error {
-        Error::Msg(err)
-    }
-}
-
-impl std::error::Error for Error {
-    fn description(&self) -> &str {
-        match *self {
-            Error::Io(ref err) => err.description(),
-            Error::Msg(ref err) => &err,
-            Error::Parse(ref _err) => "Error parsing config",
-            Error::Request(ref err) => err.description(),
-            Error::LoadFeed(ref err) => err.description(),
-            Error::ParseFeed(ref _err) => "Error parsing feed",
-            #[cfg(unix)]
-            Error::BaseDirectory(ref err) => err.description(),
-            #[cfg(windows)]
-            Error::BaseDirectory(ref err) => err.description(),
-        }
-    }
 }

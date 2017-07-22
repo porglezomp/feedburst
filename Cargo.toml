@@ -4,7 +4,6 @@ version = "0.1.0"
 authors = ["Caleb Jones <code@calebjones.net>"]
 
 [dependencies]
-nom = { version = "^3.1", features = ["verbose-errors"] }
 syndication = "0.4"
 reqwest = "0.7"
 xdg = "^2.1"

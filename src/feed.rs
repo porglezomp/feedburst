@@ -1,9 +1,9 @@
 use std::collections::HashSet;
 use chrono::{DateTime, Utc, MIN_DATE, Weekday};
 use std::io::{self, Read, Write, Seek};
-use std::error;
-use nom::{space, multispace};
-use std::str::FromStr;
+
+use parser::parse_events;
+use error::{Error, Span, ParseError};
 
 #[derive(Hash, Copy, Clone, Debug, PartialEq, Eq)]
 pub enum UpdateSpec {
@@ -20,48 +20,38 @@ pub struct FeedInfo {
     pub updates: HashSet<UpdateSpec>,
 }
 
-#[derive(Debug)]
-pub enum LoadFeedError {
-    Io(io::Error),
-    ParseFailure,
-}
-
-impl ::std::fmt::Display for LoadFeedError {
-    fn fmt(&self, fmt: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        match *self {
-            LoadFeedError::Io(ref err) => write!(fmt, "{}", err),
-            LoadFeedError::ParseFailure => write!(fmt, "Error parsing feed history"),
-        }
-    }
-}
-
-impl From<io::Error> for LoadFeedError {
-    fn from(err: io::Error) -> Self {
-        LoadFeedError::Io(err)
-    }
-}
-
-impl error::Error for LoadFeedError {
-    fn description(&self) -> &str {
-        match *self {
-            LoadFeedError::Io(ref err) => err.description(),
-            LoadFeedError::ParseFailure => "failed parsing feed",
-        }
-    }
-}
-
 impl FeedInfo {
-    pub fn read_feed<R: Read>(&self, reader: &mut R) -> Result<Feed, LoadFeedError> {
-        use nom::IResult;
-
+    pub fn read_feed<R: Read>(&self, reader: &mut R) -> Result<Feed, Error> {
         let mut string = String::new();
         reader.read_to_string(&mut string)?;
-        let events = match parse_events(&string) {
-            IResult::Done("", res) => res,
-            IResult::Done(_, _) |
-            IResult::Error(_) |
-            IResult::Incomplete(_) => return Err(LoadFeedError::ParseFailure),
+
+        let make_error_message = |row: usize, span: Span, msg: &str| -> Error {
+            let mut message = format!("Line {}: Error parsing feed \"{}\"\n\n", row, self.name);
+            let line = string.lines().nth(row).unwrap_or_default();
+            message.push_str(&format!("{}\n", line));
+            match span {
+                None => message.push('\n'),
+                Some((l, r)) => {
+                    let underline = format!("{}{}\n", " ".repeat(l), "^".repeat(r - l + 1));
+                    message.push_str(&underline);
+                }
+            }
+
+            message.push_str(&format!("Expected {}", msg));
+            Error::Msg(message)
         };
+
+        let events = match parse_events(&string) {
+            Ok(events) => events,
+            Err(ParseError::Expected { character, row, span }) => {
+                let msg = format!("'{}'", character);
+                return Err(make_error_message(row, span, &msg));
+            }
+            Err(ParseError::ExpectedMsg { msg, row, span }) => {
+                return Err(make_error_message(row, span, &msg));
+            }
+        };
+
         let mut last_read = MIN_DATE.and_hms(0, 0, 0);
         let mut new_comics = 0;
         let mut seen_comics = HashSet::new();
@@ -89,7 +79,7 @@ impl FeedInfo {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-enum FeedEvent {
+pub enum FeedEvent {
     ComicUrl(String),
     Read(DateTime<Utc>),
 }
@@ -216,45 +206,3 @@ impl Feed {
     }
 }
 
-named!(parse_events<&str, Vec<FeedEvent>>,
-    do_parse!(
-        events: many0!(event) >>
-        opt!(complete!(multispace)) >>
-        eof!() >>
-
-        (events)
-    )
-);
-
-named!(event<&str, FeedEvent>,
-    preceded!(opt!(multispace),
-        complete!(alt_complete!(
-            urlevent
-            | readevent
-        ))
-    )
-);
-
-named!(urlevent<&str, FeedEvent>,
-    do_parse!(
-        char!('<') >>
-        url: is_not!(">") >>
-        char!('>') >>
-
-        (FeedEvent::ComicUrl(url.into()))
-    )
-);
-
-named!(readevent<&str, FeedEvent>,
-    do_parse!(
-        tag!("read") >>
-        space >>
-        read_date: date >>
-
-        (FeedEvent::Read(read_date))
-    )
-);
-
-named!(date<&str, DateTime<Utc>>,
-    map_res!(take_until_either!("\n\r "), DateTime::from_str)
-);
