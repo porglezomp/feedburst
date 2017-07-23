@@ -37,7 +37,7 @@ fn main() {
 fn run() -> Result<(), Error> {
     pretty_env_logger::init().unwrap();
     let matches = App::new(APP_NAME)
-        .version("0.2")
+        .version("0.2.1")
         .author("Caleb Jones <code@calebjones.net>")
         .about("Presents you your RSS feeds in chunks")
         .arg(
