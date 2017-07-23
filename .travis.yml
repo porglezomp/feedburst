@@ -14,6 +14,11 @@ rust:
 matrix:
   allow_failures:
     - rust: nightly
+  exclude:
+    - os: osx
+      rust: beta
+    - os: osx
+      rust: nightly
 cache:
   cargo: true
 before_script:
@@ -23,7 +28,7 @@ script:
   - cargo fmt -- --write-mode=diff
   - cargo build --verbose
   - cargo test --verbose
-pre_deploy:
+before_deploy:
   - cargo build --release
   - tar czf "${PROJECT_NAME}-${TRAVIS_TAG}-${TRAVIS_OS_NAME}.tar.gz" target/release/feedburst
 deploy:
