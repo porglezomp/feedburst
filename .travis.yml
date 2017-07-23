@@ -1,26 +1,38 @@
 sudo: false
 language: rust
+
+env:
+  global:
+    - PROJECT_NAME=feedburst
+os:
+  - linux
+  - osx
 rust:
-- stable
-- beta
-- nightly
+  - stable
+  - beta
+  - nightly
 matrix:
   allow_failures:
     - rust: nightly
 cache:
   cargo: true
 before_script:
-- export PATH="$PATH:$HOME/.cargo/bin"
-- which rustfmt || cargo install rustfmt
+  - export PATH="$PATH:$HOME/.cargo/bin"
+  - which rustfmt || cargo install rustfmt
 script:
-- cargo fmt -- --write-mode=diff
-- cargo build --verbose
-- cargo test --verbose
+  - cargo fmt -- --write-mode=diff
+  - cargo build --verbose
+  - cargo test --verbose
+pre_deploy:
+  - cargo build --release
+  - tar czf "${PROJECT_NAME}-${TRAVIS_TAG}-${TRAVIS_OS_NAME}.tar.gz" target/release/feedburst
 deploy:
   provider: releases
+  skip_cleanup: true
   api_key:
     secure: EcEdX6DcokV7+8gwZgBoSyNi3LsJT8MPOGsuvc/dcO3TUakD1PnLckzWr/NKxsdI8AOmP1QWffjgEw1d0fTaKKayQqNNUD2LF5MfDLkxZNoF3EEYnCU7SbhxKyagRp6M3AzNbLYQSIQxHvY2lMPLzdKGjdeSvEh50OhK8oZ2SBtjoRu1Nl9S6pO1IEsmXpj6ZWPE8rfiW9Unv/ChNO7EFa8P/t8bQIgHrJolsHy+zIpZe8eFMpGTt6+gr0nH2m1rYIaKKD4EQjBoxGDaU5C5pkDKsuOLhkVj8q7HCu9fUC7+1bhrSIy2rpz0rVgHrj9OEIsVjqgvOl1BrYNNoU5lCOBUGWuxLvA7qfc5uKb2WjJo/Jih5vMoQi9ezgEhqnE6WzNjR0rcHpC0Zt6VaSv7lHO3fDrsDkngBjjqWXWXdiQ7axRpO8k7j9RAj91YFZmyK4xbRdSsUVQjI8kWh6i1pO4YkNNex/Bq64su4pXqWKNDj6IrljwDgL/lAIkFkFSsLWM9y8G1GK2iOHsIZzInX7HvtWKTu9nL+1o8neUrw+jfj5n3wUjhT4fVUcYKTVl3upjhFBikweA5nH8LnAZNtgpGuvx2aYOiobDW8PRxm1EIeTkekEqJOgBHPILhPSFQFPdVA5cn9dXwnje37OjD2wE3tQa0Ae4w6UgYwiqGKtk=
-  file: target/release/feedburst
+  file: "${PROJECT_NAME}-${TRAVIS_TAG}-${TRAVIS_OS_NAME}.tar.gz"
   on:
+    condition: $TRAVIS_RUST_VERSION = stable
     repo: porglezomp-misc/feedburst
     tags: true
