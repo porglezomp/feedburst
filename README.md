@@ -36,9 +36,8 @@ By default, on macOS and Linux, the config file is stored at:
 and on Windows, it's stored at
 
 ```
-C:\Users\USERNAME\AppData\Roaming\porglezomp\feeedburst\config.feeds
+C:\Users\USERNAME\AppData\Roaming\Feedburst\config.feeds
 ```
 
-Technically, on macOS and Linux, the config file is stored according to the `$XDG_CONFIG_DIR` environment variable.
-If you want to customize it beyond that, on any platform, you can set a base path with the `$FEEDBURST_CONFIG_PATH` environment variable.
+If you want to set a different default location for your config file, you can set the `$FEEDBURST_CONFIG_FILE` environment variable.
 If you want to use a different config for a single run, then use `--config FILE` on the command line.
