@@ -1,6 +1,6 @@
 [package]
 name = "feedburst"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Caleb Jones <code@calebjones.net>"]
 
 [dependencies]
