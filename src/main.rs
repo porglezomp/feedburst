@@ -124,6 +124,7 @@ fn run() -> Result<(), Error> {
             std::thread::spawn(move || for info in group {
                 match fetch_feed(&info) {
                     Ok(feed) => tx.send(feed).unwrap(),
+                    Err(Error::Msg(err)) => eprintln!("{}", err),
                     Err(err) => eprintln!("Error in feed {}: {}", info.name, err),
                 }
             });
@@ -188,6 +189,19 @@ fn fetch_feed(feed_info: &FeedInfo) -> Result<Feed, Error> {
         .timeout(std::time::Duration::from_secs(5))
         .build()?;
     let mut resp = client.get(&feed_info.url)?.send()?;
+    if !resp.status().is_success() {
+        debug!(
+            "Error \"{}\" fetching feed {} from {}",
+            resp.status(),
+            feed_info.name,
+            feed_info.url,
+        );
+        return Err(Error::Msg(format!(
+            "{} (Failed to download: \"{}\")",
+            feed_info.name,
+            resp.status(),
+        )));
+    }
     let mut content = String::new();
     resp.read_to_string(&mut content)?;
     let links: Vec<_> = {
