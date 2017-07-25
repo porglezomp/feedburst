@@ -253,7 +253,10 @@ fn read_feed(feed: &mut Feed) -> Result<(), Error> {
     }
     let plural_feeds = if items.len() == 1 { "comic" } else { "comics" };
     println!("{} ({} {})", feed.info.name, items.len(), plural_feeds);
-    open::that(items.first().unwrap())?;
+    let status = open::that(items.first().unwrap())?;
+    if !status.success() {
+        return Err(Error::Msg("Failed to open feed".into()));
+    }
     feed.read();
     feed.write_changes(&mut file)?;
     Ok(())
