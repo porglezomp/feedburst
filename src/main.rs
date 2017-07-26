@@ -18,7 +18,7 @@ mod feed;
 mod error;
 mod config;
 
-use feed::{Feed, FeedInfo};
+use feed::Feed;
 use error::{Error, ParseError, Span};
 
 const APP_NAME: &'static str = "feedburst";
@@ -108,24 +108,41 @@ fn run() -> Result<(), Error> {
         return Ok(());
     }
 
-    // @Performance: Sort the feed info to put the most useful ones first
+    let mut feeds: Vec<_> = feeds
+        .into_iter()
+        .map(|info| {
+            let mut feed_file = args.feed_file(&info)?;
+            info.read_feed(&mut feed_file)
+        })
+        .filter_map(|feed| match feed {
+            Ok(feed) => Some(feed),
+            Err(err) => {
+                eprintln!("{}", err);
+                None
+            }
+        })
+        .collect();
+
+    // Fetch the feeds that are currently scheduled, not those that are unscheduled
+    feeds.sort_by_key(|feed| !feed.is_scheduled());
 
     let rx = {
         let (tx, rx) = std::sync::mpsc::channel();
         const NUM_THREADS: usize = 4;
-        let mut groups = vec![vec![]; NUM_THREADS];
-        for (i, feed_info) in feeds.into_iter().enumerate() {
-            groups[i % NUM_THREADS].push(feed_info);
+        let mut groups: Vec<Vec<Feed>> = vec![vec![]; NUM_THREADS];
+        for (i, feed) in feeds.into_iter().enumerate() {
+            groups[i % NUM_THREADS].push(feed);
         }
 
         for group in groups {
             let tx = tx.clone();
             let args = args.clone();
-            std::thread::spawn(move || for info in group {
-                match fetch_feed(&args, &info) {
+            std::thread::spawn(move || for feed in group {
+                let name = feed.info.name.clone();
+                match fetch_feed(&args, feed) {
                     Ok(feed) => tx.send(feed).unwrap(),
                     Err(Error::Msg(err)) => eprintln!("{}", err),
-                    Err(err) => eprintln!("Error in feed {}: {}", info.name, err),
+                    Err(err) => eprintln!("Error in feed {}: {}", name, err),
                 }
             });
         }
@@ -152,22 +169,22 @@ fn run() -> Result<(), Error> {
     Ok(())
 }
 
-fn fetch_feed(args: &config::Args, feed_info: &FeedInfo) -> Result<Feed, Error> {
-    debug!("Fetching \"{}\" from <{}>", feed_info.name, feed_info.url);
+fn fetch_feed(args: &config::Args, mut feed: Feed) -> Result<Feed, Error> {
+    debug!("Fetching \"{}\" from <{}>", feed.info.name, feed.info.url);
     let client = reqwest::ClientBuilder::new()?
         .timeout(std::time::Duration::from_secs(5))
         .build()?;
-    let mut resp = client.get(&feed_info.url)?.send()?;
+    let mut resp = client.get(&feed.info.url)?.send()?;
     if !resp.status().is_success() {
         debug!(
             "Error \"{}\" fetching feed {} from {}",
             resp.status(),
-            feed_info.name,
-            feed_info.url,
+            feed.info.name,
+            feed.info.url,
         );
         return Err(Error::Msg(format!(
             "{} (Failed to download: \"{}\")",
-            feed_info.name,
+            feed.info.name,
             resp.status(),
         )));
     }
@@ -175,6 +192,7 @@ fn fetch_feed(args: &config::Args, feed_info: &FeedInfo) -> Result<Feed, Error> 
     resp.read_to_string(&mut content)?;
     let links: Vec<_> = {
         use syndication::Feed;
+        let feed_info = &feed.info;
         match Feed::from_str(&content).map_err(|x| Error::Msg(x.into()))? {
             Feed::Atom(feed) => {
                 debug!("Parsed feed <{}> as Atom", feed_info.url);
@@ -196,8 +214,7 @@ fn fetch_feed(args: &config::Args, feed_info: &FeedInfo) -> Result<Feed, Error> 
         }
     };
 
-    let mut feed_file = args.feed_file(&feed_info)?;
-    let mut feed = feed_info.read_feed(&mut feed_file)?;
+    let mut feed_file = args.feed_file(&feed.info)?;
     feed.add_new_comics(&links);
     feed.write_changes(&mut feed_file)?;
     Ok(feed)
