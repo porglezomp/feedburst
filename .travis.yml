@@ -1,26 +1,31 @@
 sudo: false
 language: rust
-
+dist: trusty
+addons:
+    apt:
+        packages:
+            - libssl-dev
 env:
   global:
     - PROJECT_NAME=feedburst
-os:
-  - linux
-  - osx
-rust:
-  - stable
-  - beta
-  - nightly
-matrix:
-  allow_failures:
-    - rust: nightly
-  exclude:
-    - os: osx
-      rust: beta
-    - os: osx
-      rust: nightly
 cache:
   cargo: true
+
+matrix:
+  fast_finish: true
+  include:
+    - os: linux
+      rust: stable
+      env: DO_COVERAGE=true
+    - os: linux
+      rust: beta
+    - os: linux
+      rust: nightly
+    - os: osx
+      rust: stable
+  allow_failures:
+    - rust: nightly
+
 before_script:
   - export PATH="$PATH:$HOME/.cargo/bin"
   - which rustfmt || cargo install rustfmt
@@ -28,6 +33,13 @@ script:
   - cargo fmt -- --write-mode=diff
   - cargo build --verbose
   - cargo test --verbose
+
+after_success: |
+  if [[ "$DO_COVERAGE" == true ]]; then
+    cargo install cargo-tarpaulin
+    cargo tarpaulin --ciserver travis-ci --coveralls $TRAVIS_JOB_ID
+  fi
+
 before_deploy:
   - cargo build --release
   - tar czf "${PROJECT_NAME}-${TRAVIS_TAG}-${TRAVIS_OS_NAME}.tar.gz" target/release/feedburst

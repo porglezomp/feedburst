@@ -2,6 +2,8 @@
 
 [![Build status](https://ci.appveyor.com/api/projects/status/wsg83k3i456yi32s?svg=true)](https://ci.appveyor.com/project/porglezomp/feedburst)
 [![Build Status](https://travis-ci.org/porglezomp-misc/feedburst.svg)](https://travis-ci.org/porglezomp-misc/feedburst)
+[![Coverage Status](https://coveralls.io/repos/github/porglezomp-misc/feedburst/badge.svg?branch=develop)](https://coveralls.io/github/porglezomp-misc/feedburst?branch=develop)
+[![Release](https://github.com/porglezomp-misc/feedburst/releases/latest)](https://img.shields.io/github/release/porglezomp-misc/feedburst.svg)
 
 Feedburst is a tool that presents you your RSS feeds in chunks, according to a policy that you set.
 
