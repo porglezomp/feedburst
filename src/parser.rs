@@ -12,10 +12,21 @@ fn not_space(x: char) -> bool {
 
 pub fn parse_config(input: &str) -> Result<Vec<FeedInfo>, ParseError> {
     let mut out = Vec::new();
+    let mut root_path = None;
     for (row, line) in input.lines().enumerate() {
-        if let Some(col) = line.find(|x| x != ' ' && x != '\t') {
-            if !line[col..].starts_with('#') {
-                out.push(parse_line(row, col, line)?);
+        if let Some(col) = line.find(not_space) {
+            // @Cleanup: Handle all of the "expect"s in a unified way
+            if line[col..].starts_with("root ") {
+                let text = line[col + "root ".len()..].trim();
+                if text.is_empty() {
+                    root_path = None;
+                } else {
+                    root_path = Some(text.into());
+                }
+            } else if !line[col..].starts_with('#') {
+                let mut feed = parse_line(row, col, line)?;
+                feed.root = root_path.clone();
+                out.push(feed);
             }
         }
     }
@@ -30,6 +41,7 @@ pub fn parse_line(row: usize, col: usize, input: &str) -> Result<FeedInfo, Parse
         name,
         url,
         updates: HashSet::from_iter(policies),
+        root: None,
     })
 }
 
@@ -182,10 +194,14 @@ fn test_config_parser() {
                 name: "Questionable Content".into(),
                 url: "http://questionablecontent.net/QCRSS.xml".into(),
                 updates: HashSet::from_iter(vec![UpdateSpec::On(Weekday::Sat)]),
+                root: None,
             },
         ])
     );
+}
 
+#[test]
+fn test_multi_feeds() {
     let input = r#"
 
 # Good and cute
@@ -207,6 +223,7 @@ fn test_config_parser() {
                     UpdateSpec::On(Weekday::Mon),
                     UpdateSpec::Overlap(2),
                 ]),
+                root: None,
             },
             FeedInfo {
                 name: "Electrum".into(),
@@ -214,6 +231,7 @@ fn test_config_parser() {
                 updates: HashSet::from_iter(
                     vec![UpdateSpec::Comics(5), UpdateSpec::On(Weekday::Thu)]
                 ),
+                root: None,
             },
             FeedInfo {
                 name: "Gunnerkrigg Court".into(),
@@ -221,6 +239,7 @@ fn test_config_parser() {
                 updates: HashSet::from_iter(
                     vec![UpdateSpec::Comics(4), UpdateSpec::On(Weekday::Tue)]
                 ),
+                root: None,
             },
         ])
     )
@@ -261,4 +280,44 @@ pub fn parse_events(input: &str) -> Result<Vec<FeedEvent>, ParseError> {
         }
     }
     Ok(result)
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_feed_root() {
+        let input = r#"
+root /hello/world
+"Witchy" <http://feeds.feedburner.com/WitchyComic?format=xml>
+"Cucumber Quest" <http://cucumber.gigidigi.com/feed/>
+root /oops/this/is/another/path
+"Imogen Quest" <http://imogenquest.net/?feed=rss2>
+"#;
+
+        assert_eq!(
+            parse_config(input),
+            Ok(vec![
+                FeedInfo {
+                    name: "Witchy".into(),
+                    url: "http://feeds.feedburner.com/WitchyComic?format=xml".into(),
+                    updates: HashSet::new(),
+                    root: Some("/hello/world".into()),
+                },
+                FeedInfo {
+                    name: "Cucumber Quest".into(),
+                    url: "http://cucumber.gigidigi.com/feed/".into(),
+                    updates: HashSet::new(),
+                    root: Some("/hello/world".into()),
+                },
+                FeedInfo {
+                    name: "Imogen Quest".into(),
+                    url: "http://imogenquest.net/?feed=rss2".into(),
+                    updates: HashSet::new(),
+                    root: Some("/oops/this/is/another/path".into()),
+                },
+            ])
+        )
+    }
 }

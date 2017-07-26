@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 use chrono::{DateTime, Utc, MIN_DATE, Weekday};
 use std::io::{self, Read, Write, Seek};
+use std::path::PathBuf;
 
 use parser::parse_events;
 use error::{Error, Span, ParseError};
@@ -18,6 +19,7 @@ pub struct FeedInfo {
     pub name: String,
     pub url: String,
     pub updates: HashSet<UpdateSpec>,
+    pub root: Option<PathBuf>,
 }
 
 impl FeedInfo {

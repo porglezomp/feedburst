@@ -15,7 +15,7 @@ enum PathWrapper {
 #[derive(Clone)]
 pub struct Args {
     only_fetch: bool,
-    feed_root: Option<String>,
+    feed_root: Option<PathBuf>,
     config: PathWrapper,
 }
 
@@ -61,7 +61,8 @@ impl Args {
     }
 
     pub fn feed_file(&self, info: &FeedInfo) -> Result<File, Error> {
-        let path = feed_path(&self.feed_root, &info.name)?;
+        let root = self.feed_root.as_ref().or(info.root.as_ref());
+        let path = feed_path(root, &info.name)?;
         OpenOptions::new()
             .read(true)
             .write(true)
@@ -73,9 +74,9 @@ impl Args {
     }
 }
 
-fn feed_path(root: &Option<String>, name: &str) -> Result<PathBuf, Error> {
-    if let Some(ref root) = *root {
-        debug!("Using feed specified on the command line: {}", root);
+fn feed_path(root: Option<&PathBuf>, name: &str) -> Result<PathBuf, Error> {
+    if let Some(root) = root {
+        debug!("Using feed specified on the command line: {:?}", root);
         let root = Path::new(root);
         if !root.is_dir() {
             Err(Error::Msg(format!("Error: {:?} is not a directory", root)))
