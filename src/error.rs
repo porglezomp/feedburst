@@ -22,22 +22,13 @@ pub type Span = Option<(usize, usize)>;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ParseError {
-    Expected { chr: char, row: usize, span: Span },
-    ExpectedMsg { msg: String, row: usize, span: Span },
+    Expected { msg: String, row: usize, span: Span },
 }
 
 impl ParseError {
     pub fn expected<St: Into<String>, Sp: IntoSpan>(msg: St, row: usize, span: Sp) -> Self {
-        ParseError::ExpectedMsg {
-            msg: msg.into(),
-            row,
-            span: span.into_span(),
-        }
-    }
-
-    pub fn expected_char<Sp: IntoSpan>(chr: char, row: usize, span: Sp) -> Self {
         ParseError::Expected {
-            chr,
+            msg: msg.into(),
             row,
             span: span.into_span(),
         }
