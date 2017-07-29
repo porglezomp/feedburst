@@ -51,5 +51,5 @@ deploy:
   file: "${PROJECT_NAME}-${TRAVIS_TAG}-${TRAVIS_OS_NAME}.tar.gz"
   on:
     condition: $TRAVIS_RUST_VERSION = stable
-    repo: porglezomp-misc/feedburst
+    repo: porglezomp/feedburst
     tags: true
