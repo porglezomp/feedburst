@@ -1,7 +1,21 @@
 [package]
 name = "feedburst"
-version = "0.2.1"
+version = "0.3.0"
 authors = ["Caleb Jones <code@calebjones.net>"]
+repository = "https://github.com/porglezomp/feedburst"
+license = "GPL-3.0+"
+readme = "README.md"
+keywords = ["comic", "rss", "atom", "syndication"]
+categories = ["command-line-utilities"]
+publish = false
+description = """
+A tool to consume comic RSS feeds and present them to you in bunches, on a schedule of your choosing.
+"""
+
+[badges]
+travis-ci = { repository = "porglezomp/feedburst", branch = "develop" }
+appveyor = { repository = "porglezomp/feedburst", branch = "develop" }
+coveralls = { repository = "porglezomp/feedburst", branch = "develop" }
 
 [dependencies]
 syndication = "0.4"
@@ -13,3 +27,6 @@ open = "1.2"
 log = "0.3.8"
 pretty_env_logger = "0.1.1"
 app_dirs = "1.1.1"
+
+[[bin]]
+name = "feedburst"

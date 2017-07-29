@@ -1,7 +1,9 @@
 # Feedburst!
 
 [![Build status](https://ci.appveyor.com/api/projects/status/wsg83k3i456yi32s?svg=true)](https://ci.appveyor.com/project/porglezomp/feedburst)
-[![Build Status](https://travis-ci.org/porglezomp-misc/feedburst.svg)](https://travis-ci.org/porglezomp-misc/feedburst)
+[![Build Status](https://travis-ci.org/porglezomp/feedburst.svg)](https://travis-ci.org/porglezomp/feedburst)
+[![Coverage Status](https://coveralls.io/repos/github/porglezomp/feedburst/badge.svg?branch=develop)](https://coveralls.io/github/porglezomp/feedburst?branch=develop)
+[![Release](https://img.shields.io/github/release/porglezomp/feedburst.svg)](https://github.com/porglezomp/feedburst/releases/latest)
 
 Feedburst is a tool that presents you your RSS feeds in chunks, according to a policy that you set.
 
@@ -25,6 +27,8 @@ The `@policy` are rules for when and how you’d like that comic feed to be pres
 - `@ on monday/tuesday/etc…`: Show the comics once the corresponding day has passed.
 - `@ every # day(s)`: Wait at least # days since you last read the comic.
 
+For more features, [see the advanced config section](#advanced-config).
+
 ## Config Location
 
 By default, on macOS and Linux, the config file is stored at:
@@ -36,9 +40,35 @@ By default, on macOS and Linux, the config file is stored at:
 and on Windows, it's stored at
 
 ```
-C:\Users\USERNAME\AppData\Roaming\porglezomp\feeedburst\config.feeds
+%AppData%\Feedburst\config.feeds
 ```
 
-Technically, on macOS and Linux, the config file is stored according to the `$XDG_CONFIG_DIR` environment variable.
-If you want to customize it beyond that, on any platform, you can set a base path with the `$FEEDBURST_CONFIG_PATH` environment variable.
+If you want to set a different default location for your config file, you can set the `$FEEDBURST_CONFIG_FILE` environment variable.
 If you want to use a different config for a single run, then use `--config FILE` on the command line.
+
+## Advanced Config
+
+By default, all of your feeds are stored together.
+On macOS and Linux, they're stored at:
+
+```
+~/.local/share/feedburst/feeds/
+```
+
+On Windows you can find your feeds at:
+
+```
+%AppData%\Feedburst\feeds\
+```
+
+If you want to store your feeds in a location different from the default, then you have two options.
+First, you can override the base path for all of your comics on the command line with `--feeds PATH`.
+If you'd like to permanently change the base path, then add a line to your config file
+
+```
+root PATH
+```
+
+This will store all feeds that come after that line at `PATH`.
+You can use as many `root` directives as you want to, and each feed will use whichever was specified most recently.
+If you'd like to reset later feeds to be stored at the default location, then just put `feed` on its own on the line.

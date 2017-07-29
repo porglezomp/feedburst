@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 use chrono::{DateTime, Utc, MIN_DATE, Weekday};
 use std::io::{self, Read, Write, Seek};
+use std::path::PathBuf;
 
 use parser::parse_events;
 use error::{Error, Span, ParseError};
@@ -18,6 +19,7 @@ pub struct FeedInfo {
     pub name: String,
     pub url: String,
     pub updates: HashSet<UpdateSpec>,
+    pub root: Option<PathBuf>,
 }
 
 impl FeedInfo {
@@ -43,11 +45,7 @@ impl FeedInfo {
 
         let events = match parse_events(&string) {
             Ok(events) => events,
-            Err(ParseError::Expected { chr, row, span }) => {
-                let msg = format!("'{}'", chr);
-                return Err(make_error_message(row, span, &msg));
-            }
-            Err(ParseError::ExpectedMsg { msg, row, span }) => {
+            Err(ParseError::Expected { msg, row, span }) => {
                 return Err(make_error_message(row, span, &msg));
             }
         };
@@ -105,14 +103,10 @@ impl Feed {
         }
     }
 
-    pub fn is_ready(&self) -> bool {
+    pub fn is_scheduled(&self) -> bool {
         let elapsed_time = Utc::now().signed_duration_since(self.last_read);
         let mut day_passed = false;
         let mut day_relevant = false;
-
-        if self.new_comics < 1 {
-            return false;
-        }
 
         for policy in &self.info.updates {
             match *policy {
@@ -125,19 +119,6 @@ impl Feed {
                     );
                     if elapsed_time.num_days() < num_days as i64 {
                         debug!("Skipping \"{}\" because of @every", self.info.name);
-                        return false;
-                    }
-                    trace!("Rule passed!");
-                }
-                UpdateSpec::Comics(num_comics) => {
-                    trace!(
-                        "Rule for \"{}\": @ {} new comics (has {})",
-                        self.info.name,
-                        num_comics,
-                        self.new_comics
-                    );
-                    if self.new_comics < num_comics {
-                        debug!("Skipping \"{}\" because of @comics", self.info.name);
                         return false;
                     }
                     trace!("Rule passed!");
@@ -156,12 +137,47 @@ impl Feed {
                         }
                     }
                 }
-                UpdateSpec::Overlap(_) => (),
+                UpdateSpec::Overlap(_) |
+                UpdateSpec::Comics(_) => (),
             }
         }
+
         if day_relevant && !day_passed {
             debug!("Skipping \"{}\" because of @on", self.info.name);
-            return day_passed;
+            false
+        } else {
+            true
+        }
+    }
+
+    pub fn is_ready(&self) -> bool {
+        if self.new_comics < 1 {
+            return false;
+        }
+
+        if !self.is_scheduled() {
+            return false;
+        }
+
+        for policy in &self.info.updates {
+            match *policy {
+                UpdateSpec::Comics(num_comics) => {
+                    trace!(
+                        "Rule for \"{}\": @ {} new comics (has {})",
+                        self.info.name,
+                        num_comics,
+                        self.new_comics
+                    );
+                    if self.new_comics < num_comics {
+                        debug!("Skipping \"{}\" because of @comics", self.info.name);
+                        return false;
+                    }
+                    trace!("Rule passed!");
+                }
+                UpdateSpec::Every(_) |
+                UpdateSpec::On(_) |
+                UpdateSpec::Overlap(_) => (),
+            }
         }
         true
     }
