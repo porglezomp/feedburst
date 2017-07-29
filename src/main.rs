@@ -22,7 +22,7 @@ mod config;
 use feed::Feed;
 use error::{Error, ParseError, Span};
 
-const APP_NAME: &'static str = "feedburst";
+const APP_NAME: &'static str = env!("CARGO_PKG_NAME");
 
 fn main() {
     if let Err(err) = run() {
@@ -34,8 +34,8 @@ fn main() {
 fn run() -> Result<(), Error> {
     pretty_env_logger::init().unwrap();
     let matches = App::new(APP_NAME)
-        .version("0.2.1")
-        .author("Caleb Jones <code@calebjones.net>")
+        .version(env!("CARGO_PKG_VERSION"))
+        .author(env!("CARGO_PKG_AUTHORS"))
         .about("Presents you your RSS feeds in chunks")
         .arg(
             Arg::with_name("config")
