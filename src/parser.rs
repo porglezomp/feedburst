@@ -162,69 +162,6 @@ fn parse_weekday<'a>(buf: &Buffer<'a>) -> ParseResult<'a, Weekday> {
 }
 
 
-#[test]
-fn test_config_parser() {
-    let buf = r#"
-"Questionable Content" <http://questionablecontent.net/QCRSS.xml> @ on Saturday
-"#;
-    assert_eq!(
-        parse_config(buf),
-        Ok(vec![
-            FeedInfo {
-                name: "Questionable Content".into(),
-                url: "http://questionablecontent.net/QCRSS.xml".into(),
-                updates: HashSet::from_iter(vec![UpdateSpec::On(Weekday::Sat)]),
-                root: None,
-            },
-        ])
-    );
-}
-
-#[test]
-fn test_multi_feeds() {
-    let buf = r#"
-
-# Good and cute
-"Goodbye To Halos" <http://goodbyetohalos.com/feed/> @ 3 new comics @ on Monday @ overlap 2 comics
-# pe'i xamgu
-"Electrum" <https://electrum.cubemelon.net/feed> @ On Thursday @ 5 new Comics
-
-"Gunnerkrigg Court" <http://gunnerkrigg.com/rss.xml> @ 4 new comics @ on tuesday
-
-"#;
-    assert_eq!(
-        parse_config(buf),
-        Ok(vec![
-            FeedInfo {
-                name: "Goodbye To Halos".into(),
-                url: "http://goodbyetohalos.com/feed/".into(),
-                updates: HashSet::from_iter(vec![
-                    UpdateSpec::Comics(3),
-                    UpdateSpec::On(Weekday::Mon),
-                    UpdateSpec::Overlap(2),
-                ]),
-                root: None,
-            },
-            FeedInfo {
-                name: "Electrum".into(),
-                url: "https://electrum.cubemelon.net/feed".into(),
-                updates: HashSet::from_iter(
-                    vec![UpdateSpec::Comics(5), UpdateSpec::On(Weekday::Thu)]
-                ),
-                root: None,
-            },
-            FeedInfo {
-                name: "Gunnerkrigg Court".into(),
-                url: "http://gunnerkrigg.com/rss.xml".into(),
-                updates: HashSet::from_iter(
-                    vec![UpdateSpec::Comics(4), UpdateSpec::On(Weekday::Tue)]
-                ),
-                root: None,
-            },
-        ])
-    )
-}
-
 pub fn parse_events(input: &str) -> Result<Vec<FeedEvent>, ParseError> {
     let mut result = Vec::new();
     for (row, line) in input.lines().enumerate() {
@@ -268,6 +205,71 @@ mod test {
     use super::*;
 
     #[test]
+    fn test_config_parser() {
+        let buf = r#"
+"Questionable Content" <http://questionablecontent.net/QCRSS.xml> @ on Saturday @ every 10 days
+"#;
+        assert_eq!(
+            parse_config(buf),
+            Ok(vec![
+                FeedInfo {
+                    name: "Questionable Content".into(),
+                    url: "http://questionablecontent.net/QCRSS.xml".into(),
+                    updates: HashSet::from_iter(
+                        vec![UpdateSpec::On(Weekday::Sat), UpdateSpec::Every(10)]
+                    ),
+                    root: None,
+                },
+            ])
+        );
+    }
+
+    #[test]
+    fn test_multi_feeds() {
+        let buf = r#"
+
+# Good and cute
+"Goodbye To Halos" <http://goodbyetohalos.com/feed/> @ 3 new comics @ on Monday @ overlap 2 comics
+# pe'i xamgu
+"Electrum" <https://electrum.cubemelon.net/feed> @ On Thursday @ 5 new Comics
+
+"Gunnerkrigg Court" <http://gunnerkrigg.com/rss.xml> @ 4 new comics @ on tuesday
+
+"#;
+        assert_eq!(
+            parse_config(buf),
+            Ok(vec![
+                FeedInfo {
+                    name: "Goodbye To Halos".into(),
+                    url: "http://goodbyetohalos.com/feed/".into(),
+                    updates: HashSet::from_iter(vec![
+                        UpdateSpec::Comics(3),
+                        UpdateSpec::On(Weekday::Mon),
+                        UpdateSpec::Overlap(2),
+                    ]),
+                    root: None,
+                },
+                FeedInfo {
+                    name: "Electrum".into(),
+                    url: "https://electrum.cubemelon.net/feed".into(),
+                    updates: HashSet::from_iter(
+                        vec![UpdateSpec::Comics(5), UpdateSpec::On(Weekday::Thu)]
+                    ),
+                    root: None,
+                },
+                FeedInfo {
+                    name: "Gunnerkrigg Court".into(),
+                    url: "http://gunnerkrigg.com/rss.xml".into(),
+                    updates: HashSet::from_iter(
+                        vec![UpdateSpec::Comics(4), UpdateSpec::On(Weekday::Tue)]
+                    ),
+                    root: None,
+                },
+            ])
+        )
+    }
+
+    #[test]
     fn test_feed_root() {
         let buf = concat!(
             r#"
@@ -275,10 +277,10 @@ mod test {
 "Eth's Skin" <http://www.eths-skin.com/rss>
 
 root /hello/world
-"Witchy" <http://feeds.feedburner.com/WitchyComic?format=xml>
-"Cucumber Quest" <http://cucumber.gigidigi.com/feed/>
+"Witchy" <http://feeds.feedburner.com/WitchyComic?format=xml> @ on Wednesday
+"Cucumber Quest" <http://cucumber.gigidigi.com/feed/> @ on Sunday
 root /oops/this/is/another/path
-"Imogen Quest" <http://imogenquest.net/?feed=rss2>
+"Imogen Quest" <http://imogenquest.net/?feed=rss2> @ on Friday
 root
 root "#,
             r#"
@@ -299,19 +301,19 @@ root "#,
                 FeedInfo {
                     name: "Witchy".into(),
                     url: "http://feeds.feedburner.com/WitchyComic?format=xml".into(),
-                    updates: HashSet::new(),
+                    updates: HashSet::from_iter(vec![UpdateSpec::On(Weekday::Wed)]),
                     root: Some("/hello/world".into()),
                 },
                 FeedInfo {
                     name: "Cucumber Quest".into(),
                     url: "http://cucumber.gigidigi.com/feed/".into(),
-                    updates: HashSet::new(),
+                    updates: HashSet::from_iter(vec![UpdateSpec::On(Weekday::Sun)]),
                     root: Some("/hello/world".into()),
                 },
                 FeedInfo {
                     name: "Imogen Quest".into(),
                     url: "http://imogenquest.net/?feed=rss2".into(),
-                    updates: HashSet::new(),
+                    updates: HashSet::from_iter(vec![UpdateSpec::On(Weekday::Fri)]),
                     root: Some("/oops/this/is/another/path".into()),
                 },
                 FeedInfo {
@@ -322,5 +324,59 @@ root "#,
                 },
             ])
         )
+    }
+
+    #[test]
+    fn test_invalid_configs() {
+        let bad_weekday = r#"
+"Boozle" <http://boozle.sgoetter.com/feed/> @ on wendsday
+"#;
+        assert_eq!(
+            parse_config(bad_weekday),
+            Err(ParseError::expected("a weekday", 2, 49))
+        );
+
+        let bad_policy = r#"
+"Boozle" <http://boozle.sgoetter.com/feed/> @ foo
+"#;
+
+        let ParseError::Expected { msg, row, .. } = parse_config(bad_policy).unwrap_err();
+        assert!(msg.starts_with("a policy definition"));
+        assert_eq!(row, 2);
+    }
+
+    #[test]
+    fn test_parse_events() {
+        use chrono::{Utc, TimeZone};
+        let input = r#"
+<http://www.goodbyetohalos.com/comic/01137>
+
+<http://www.goodbyetohalos.com/comic/01138-139>
+ read 2017-07-17T03:21:21.492180+00:00
+ <http://www.goodbyetohalos.com/comic/01140>
+read 2017-07-18T23:41:58.130248+00:00
+"#;
+        assert_eq!(
+            parse_events(input),
+            Ok(vec![
+                FeedEvent::ComicUrl(
+                    "http://www.goodbyetohalos.com/comic/01137".into()
+                ),
+                FeedEvent::ComicUrl(
+                    "http://www.goodbyetohalos.com/comic/01138-139".into()
+                ),
+                FeedEvent::Read(
+                    Utc.ymd(2017, 07, 17).and_hms_micro(03, 21, 21, 492180)
+                ),
+                FeedEvent::ComicUrl(
+                    "http://www.goodbyetohalos.com/comic/01140".into()
+                ),
+                FeedEvent::Read(
+                    Utc.ymd(2017, 07, 18).and_hms_micro(23, 41, 58, 130248)
+                ),
+            ])
+        );
+
+        assert!(parse_events("invalid").is_err());
     }
 }
