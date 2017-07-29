@@ -45,11 +45,7 @@ impl FeedInfo {
 
         let events = match parse_events(&string) {
             Ok(events) => events,
-            Err(ParseError::Expected { chr, row, span }) => {
-                let msg = format!("'{}'", chr);
-                return Err(make_error_message(row, span, &msg));
-            }
-            Err(ParseError::ExpectedMsg { msg, row, span }) => {
+            Err(ParseError::Expected { msg, row, span }) => {
                 return Err(make_error_message(row, span, &msg));
             }
         };

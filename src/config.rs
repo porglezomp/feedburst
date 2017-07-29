@@ -61,7 +61,7 @@ impl Args {
     }
 
     pub fn feed_file(&self, info: &FeedInfo) -> Result<File, Error> {
-        let root = self.feed_root.as_ref().or(info.root.as_ref());
+        let root = self.feed_root.as_ref().or_else(|| info.root.as_ref());
         let path = feed_path(root, &info.name)?;
         OpenOptions::new()
             .read(true)

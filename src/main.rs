@@ -14,6 +14,7 @@ use std::str::FromStr;
 use clap::{Arg, App};
 
 mod parser;
+mod parse_util;
 mod feed;
 mod error;
 mod config;
@@ -90,11 +91,7 @@ fn run() -> Result<(), Error> {
 
         match parser::parse_config(&text) {
             Ok(feeds) => feeds,
-            Err(ParseError::Expected { chr, row, span }) => {
-                let msg = format!("'{}'", chr);
-                return Err(make_error_message(row, span, &msg));
-            }
-            Err(ParseError::ExpectedMsg { msg, row, span }) => {
+            Err(ParseError::Expected { msg, row, span }) => {
                 return Err(make_error_message(row, span, &msg));
             }
         }
