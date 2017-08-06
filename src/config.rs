@@ -4,6 +4,7 @@ use std::fs::{File, OpenOptions};
 
 use error::Error;
 use feed::FeedInfo;
+use platform;
 
 
 #[derive(Debug, Clone)]
@@ -84,7 +85,7 @@ fn feed_path(root: Option<&PathBuf>, name: &str) -> Result<PathBuf, Error> {
             Ok(root.join(format!("{}.feed", name)))
         }
     } else {
-        let path = platform_data_path(&format!("feeds/{}.feed", name))?;
+        let path = platform::data_path(&format!("feeds/{}.feed", name))?;
         debug!("Using platform data: {:?}", path);
         Ok(path)
     }
@@ -101,87 +102,11 @@ fn config_path(path: Option<&str>) -> Result<PathWrapper, Error> {
         );
         Ok(PathWrapper::CreateIfMissing(path.into()))
     } else {
-        let path = platform_config_path()?;
+        let path = platform::config_path()?;
         debug!(
             "Using config found from the platform config dir: {:?}",
             path
         );
         Ok(PathWrapper::CreateIfMissing(path))
     }
-}
-
-#[cfg(unix)]
-fn platform_data_path(path: &str) -> Result<PathBuf, Error> {
-    if let Some(path) = env::var_os("XDG_DATA_HOME") {
-        Ok(path.into())
-    } else {
-        let xdg = ::xdg::BaseDirectories::with_prefix(::APP_NAME).map_err(
-            |err| {
-                Error::Msg(format!("{}", err))
-            },
-        )?;
-        if let Some(path) = xdg.find_data_file(path) {
-            Ok(path)
-        } else {
-            xdg.place_data_file(path).map_err(|err| {
-                Error::Msg(format!("{}", err))
-            })
-        }
-    }
-}
-
-#[cfg(unix)]
-fn platform_config_path() -> Result<PathBuf, Error> {
-    if let Some(path) = env::var_os("XDG_CONFIG_HOME") {
-        Ok(path.into())
-    } else {
-        let xdg = ::xdg::BaseDirectories::with_prefix(::APP_NAME).map_err(
-            |err| {
-                Error::Msg(format!("{}", err))
-            },
-        )?;
-        if let Some(path) = xdg.find_config_file("config.feeds") {
-            Ok(path)
-        } else {
-            xdg.place_config_file("config.feeds").map_err(|err| {
-                Error::Msg(format!("{}", err))
-            })
-        }
-    }
-}
-
-
-#[cfg(windows)]
-fn app_data_dir() -> Result<PathBuf, Error> {
-    if let Some(app_data_dir) = env::var_os("APPDATA") {
-        Ok(Path::new(&app_data_dir).join("Feedburst"))
-    } else {
-        Err(Error::Msg("Unable to find the APPDATA directory".into()))
-    }
-}
-
-#[cfg(windows)]
-fn platform_data_path(path: &str) -> Result<PathBuf, Error> {
-    let path = app_data_dir()?.join(path).parent().unwrap().into();
-    ::std::fs::create_dir_all(&path).map_err(|err| {
-        Error::Msg(format!(
-            "Error creating feeds directory {:?}: {}",
-            path,
-            err
-        ))
-    })?;
-    Ok(path)
-}
-
-#[cfg(windows)]
-fn platform_config_path() -> Result<PathBuf, Error> {
-    let path = app_data_dir()?;
-    ::std::fs::create_dir_all(&path).map_err(|err| {
-        Error::Msg(format!(
-            "Error creating config directory {:?}: {}",
-            path,
-            err
-        ))
-    })?;
-    Ok(path.join("config.feeds"))
 }

@@ -18,6 +18,7 @@ mod parse_util;
 mod feed;
 mod error;
 mod config;
+mod platform;
 
 use feed::Feed;
 use error::{Error, ParseError, Span};
