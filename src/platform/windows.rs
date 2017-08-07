@@ -1,4 +1,6 @@
 use std::path::{Path, PathBuf};
+use std::ffi::OsStr;
+use std::process::Command;
 use std::{fs, env};
 
 use error::Error;
@@ -33,4 +35,21 @@ pub fn config_path() -> Result<PathBuf, Error> {
         ))
     })?;
     Ok(path.join("config.feeds"))
+}
+
+pub fn open_url<T: AsRef<OsStr>>(url: T) -> Result<(), Error> {
+    let mut cmd = Command::new("cmd");
+    cmd.arg("/C").arg("start");
+    if let Some(s) = url.as_ref().to_str() {
+        cmd.arg(s.replace("&", "^&"));
+    } else {
+        cmd.arg(url.as_ref());
+    }
+    let exit_status = cmd.spawn()?.wait()?;
+    if exit_status.success() {
+        Ok(())
+    } else {
+        let msg = format!("Failed opening url {}", url.as_ref().to_string_lossy());
+        Err(Error::Msg(msg))
+    }
 }

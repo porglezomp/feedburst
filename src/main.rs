@@ -5,7 +5,6 @@ extern crate reqwest;
 extern crate syndication;
 extern crate chrono;
 extern crate clap;
-extern crate open;
 extern crate xdg;
 
 use std::io::Read;
@@ -226,10 +225,7 @@ fn read_feed(args: &config::Args, feed: &mut Feed) -> Result<(), Error> {
     }
     let plural_feeds = if items.len() == 1 { "comic" } else { "comics" };
     println!("{} ({} {})", feed.info.name, items.len(), plural_feeds);
-    let status = open::that(items.first().unwrap())?;
-    if !status.success() {
-        return Err(Error::Msg("Failed to open feed".into()));
-    }
+    platform::open_url(items.first().unwrap())?;
     feed.read();
     feed.write_changes(&mut feed_file)?;
     Ok(())

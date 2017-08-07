@@ -1,17 +1,17 @@
 #[cfg(target_os = "linux")]
 mod linux;
-// #[cfg(target_os = "linux")]
-// pub use self::linux::{};
+#[cfg(target_os = "linux")]
+pub use self::linux::open_url;
 
 #[cfg(target_os = "windows")]
 mod windows;
 #[cfg(target_os = "windows")]
-pub use self::windows::{data_path, config_path};
+pub use self::windows::{open_url, data_path, config_path};
 
 #[cfg(target_os = "macos")]
 mod macos;
-// #[cfg(target_os = "macos")]
-// pub use self::macos::{};
+#[cfg(target_os = "macos")]
+pub use self::macos::open_url;
 
 /// For code that's the same on macOS and Linux
 #[cfg(unix)]
