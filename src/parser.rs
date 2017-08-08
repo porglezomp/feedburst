@@ -8,19 +8,25 @@ use error::ParseError;
 use parse_util::{Buffer, ParseResult};
 
 pub fn parse_command(input: &str) -> Result<Vec<String>, ParseError> {
-    let mut buf = Buffer {
+    let buf = Buffer {
         row: 0,
         col: 0,
         text: input,
-    }.trim();
+    };
 
+    let (_, output) = parse_command_internal(&buf)?;
+    Ok(output)
+}
+
+fn parse_command_internal<'a>(buf: &Buffer<'a>) -> ParseResult<'a, Vec<String>> {
     let mut output = Vec::new();
+    let mut buf = buf.trim();
     while !buf.text.is_empty() {
         let (new_buf, part) = parse_command_part(&buf)?;
         output.push(part);
         buf = new_buf.trim_left();
     }
-    Ok(output.into_iter().map(String::from).collect())
+    Ok((buf, output.into_iter().map(String::from).collect()))
 }
 
 fn parse_command_part<'a>(buf: &Buffer<'a>) -> ParseResult<'a, &'a str> {
@@ -40,6 +46,7 @@ fn parse_command_part<'a>(buf: &Buffer<'a>) -> ParseResult<'a, &'a str> {
 pub fn parse_config(input: &str) -> Result<Vec<FeedInfo>, ParseError> {
     let mut out = Vec::new();
     let mut root_path = None;
+    let mut command = None;
     for (row, line) in input.lines().enumerate() {
         let buf = Buffer {
             row: row + 1,
@@ -58,9 +65,17 @@ pub fn parse_config(input: &str) -> Result<Vec<FeedInfo>, ParseError> {
             } else {
                 root_path = Some(buf.space()?.trim().text);
             }
+        } else if buf.starts_with("command") {
+            let buf = buf.token_no_case("command")?;
+            if buf.trim().text.is_empty() {
+                command = None;
+            } else {
+                command = Some(parse_command(buf.text)?);
+            }
         } else {
             let (_, mut feed) = parse_line(&buf)?;
             feed.root = root_path.map(From::from);
+            feed.command = command.clone();
             out.push(feed);
         }
     }
@@ -383,6 +398,61 @@ root "#,
         let ParseError::Expected { msg, row, .. } = parse_config(bad_policy).unwrap_err();
         assert!(msg.starts_with("a policy definition"));
         assert_eq!(row, 2);
+    }
+
+    #[test]
+    fn test_feed_commands() {
+        let input = r#"
+"Eth's Skin" <http://www.eths-skin.com/rss>
+
+command example "command here" 'single quotes' then-something
+"Witchy" <http://feeds.feedburner.com/WitchyComic?format=xml>
+"Cucumber Quest" <http://cucumber.gigidigi.com/feed/>
+command
+"Imogen Quest" <http://imogenquest.net/?feed=rss2>
+"#;
+
+        let command_vec = Some(vec![
+            "example".into(),
+            "command here".into(),
+            "single quotes".into(),
+            "then-something".into(),
+        ]);
+
+        assert_eq!(
+            parse_config(input),
+            Ok(vec![
+                FeedInfo {
+                    name: "Eth's Skin".into(),
+                    url: "http://www.eths-skin.com/rss".into(),
+                    updates: HashSet::new(),
+                    root: None,
+                    command: None,
+                },
+                FeedInfo {
+                    name: "Witchy".into(),
+                    url: "http://feeds.feedburner.com/WitchyComic?format=xml".into(),
+                    updates: HashSet::new(),
+                    root: None,
+                    command: command_vec.clone(),
+                },
+                FeedInfo {
+                    name: "Cucumber Quest".into(),
+                    url: "http://cucumber.gigidigi.com/feed/".into(),
+                    updates: HashSet::new(),
+                    root: None,
+                    command: command_vec,
+                },
+                FeedInfo {
+                    name: "Imogen Quest".into(),
+                    url: "http://imogenquest.net/?feed=rss2".into(),
+                    updates: HashSet::new(),
+                    root: None,
+                    command: None,
+                },
+            ])
+        )
+
     }
 
     #[test]

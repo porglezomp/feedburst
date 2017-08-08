@@ -92,7 +92,7 @@ impl Args {
     }
 
     pub fn open_url(&self, feed: &FeedInfo, url: &str) -> Result<(), Error> {
-        if let Some(ref command) = self.open_command.as_ref().or(feed.command.as_ref()) {
+        if let Some(command) = self.open_command.as_ref().or_else(|| feed.command.as_ref()) {
             let mut found_url = false;
             let command_str = command.join(" ");
             let mut command: Vec<String> = (*command).clone();
