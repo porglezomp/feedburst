@@ -20,6 +20,7 @@ pub struct FeedInfo {
     pub url: String,
     pub updates: HashSet<UpdateSpec>,
     pub root: Option<PathBuf>,
+    pub command: Option<Vec<String>>,
 }
 
 impl FeedInfo {

@@ -1,10 +1,12 @@
 use std::env;
 use std::path::{Path, PathBuf};
 use std::fs::{File, OpenOptions};
+use std::process::Command;
 
-use error::Error;
+use error::{Error, ParseError};
 use feed::FeedInfo;
 use platform;
+use parser;
 
 
 #[derive(Debug, Clone)]
@@ -18,6 +20,7 @@ pub struct Args {
     only_fetch: bool,
     feed_root: Option<PathBuf>,
     config: PathWrapper,
+    open_command: Option<Vec<String>>,
 }
 
 impl Args {
@@ -25,11 +28,25 @@ impl Args {
         only_fetch: bool,
         feed_root: Option<&str>,
         config: Option<&str>,
+        command: Option<&str>,
     ) -> Result<Self, Error> {
+        let command = if let Some(command) = command {
+            match parser::parse_command(command) {
+                Ok(command) => Some(command),
+                Err(ParseError::Expected { msg, .. }) => {
+                    let msg = format!("Error parsing command: expected {}", msg);
+                    return Err(Error::Msg(msg));
+                }
+            }
+        } else {
+            None
+        };
+
         Ok(Args {
             only_fetch,
             feed_root: feed_root.map(From::from),
             config: config_path(config)?,
+            open_command: command,
         })
     }
 
@@ -72,6 +89,45 @@ impl Args {
             .map_err(|err| {
                 Error::Msg(format!("Error opening feed file {:?}: {}", path, err))
             })
+    }
+
+    pub fn open_url(&self, feed: &FeedInfo, url: &str) -> Result<(), Error> {
+        if let Some(ref command) = self.open_command.as_ref().or(feed.command.as_ref()) {
+            let mut found_url = false;
+            let command_str = command.join(" ");
+            let mut command: Vec<String> = (*command).clone();
+            for (i, mut item) in command.iter_mut().enumerate() {
+                if item.to_uppercase() == "@URL" {
+                    if i == 0 {
+                        let msg = format!(
+                            "@URL can't be the first part of the command (in `{}`)",
+                            command_str
+                        );
+                        return Err(Error::Msg(msg));
+                    }
+                    *item = url.into();
+                    found_url = true;
+                }
+            }
+
+            if !found_url {
+                command.push(url.into());
+            }
+
+            let exit_status = Command::new(&command[0])
+                .args(&command[1..])
+                .spawn()?
+                .wait()?;
+
+            if exit_status.success() {
+                Ok(())
+            } else {
+                let msg = format!("Error running open command `{}`", command_str);
+                Err(Error::Msg(msg))
+            }
+        } else {
+            platform::open_url(url)
+        }
     }
 }
 

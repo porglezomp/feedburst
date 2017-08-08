@@ -7,6 +7,36 @@ use feed::{FeedInfo, UpdateSpec, FeedEvent};
 use error::ParseError;
 use parse_util::{Buffer, ParseResult};
 
+pub fn parse_command(input: &str) -> Result<Vec<String>, ParseError> {
+    let mut buf = Buffer {
+        row: 0,
+        col: 0,
+        text: input,
+    }.trim();
+
+    let mut output = Vec::new();
+    while !buf.text.is_empty() {
+        let (new_buf, part) = parse_command_part(&buf)?;
+        output.push(part);
+        buf = new_buf.trim_left();
+    }
+    Ok(output.into_iter().map(String::from).collect())
+}
+
+fn parse_command_part<'a>(buf: &Buffer<'a>) -> ParseResult<'a, &'a str> {
+    let buf = buf.trim_left();
+    match buf.peek() {
+        Some('\'') => buf.read_between('\'', '\''),
+        Some('"') => buf.read_between('"', '"'),
+        _ => {
+            match buf.text.find(|x: char| x.is_whitespace()) {
+                Some(offset) => Ok((buf.advance(offset), &buf.text[..offset])),
+                None => Ok((buf.advance(buf.text.len()), buf.text)),
+            }
+        }
+    }
+}
+
 pub fn parse_config(input: &str) -> Result<Vec<FeedInfo>, ParseError> {
     let mut out = Vec::new();
     let mut root_path = None;
@@ -50,6 +80,7 @@ fn parse_line<'a>(buf: &Buffer<'a>) -> ParseResult<'a, FeedInfo> {
             url: url.into(),
             updates: HashSet::from_iter(policies),
             root: None,
+            command: None,
         },
     ))
 }
@@ -219,6 +250,7 @@ mod test {
                         vec![UpdateSpec::On(Weekday::Sat), UpdateSpec::Every(10)]
                     ),
                     root: None,
+                    command: None,
                 },
             ])
         );
@@ -248,6 +280,7 @@ mod test {
                         UpdateSpec::Overlap(2),
                     ]),
                     root: None,
+                    command: None,
                 },
                 FeedInfo {
                     name: "Electrum".into(),
@@ -256,6 +289,7 @@ mod test {
                         vec![UpdateSpec::Comics(5), UpdateSpec::On(Weekday::Thu)]
                     ),
                     root: None,
+                    command: None,
                 },
                 FeedInfo {
                     name: "Gunnerkrigg Court".into(),
@@ -264,6 +298,7 @@ mod test {
                         vec![UpdateSpec::Comics(4), UpdateSpec::On(Weekday::Tue)]
                     ),
                     root: None,
+                    command: None,
                 },
             ])
         )
@@ -297,30 +332,35 @@ root "#,
                     url: "http://www.eths-skin.com/rss".into(),
                     updates: HashSet::new(),
                     root: None,
+                    command: None,
                 },
                 FeedInfo {
                     name: "Witchy".into(),
                     url: "http://feeds.feedburner.com/WitchyComic?format=xml".into(),
                     updates: HashSet::from_iter(vec![UpdateSpec::On(Weekday::Wed)]),
                     root: Some("/hello/world".into()),
+                    command: None,
                 },
                 FeedInfo {
                     name: "Cucumber Quest".into(),
                     url: "http://cucumber.gigidigi.com/feed/".into(),
                     updates: HashSet::from_iter(vec![UpdateSpec::On(Weekday::Sun)]),
                     root: Some("/hello/world".into()),
+                    command: None,
                 },
                 FeedInfo {
                     name: "Imogen Quest".into(),
                     url: "http://imogenquest.net/?feed=rss2".into(),
                     updates: HashSet::from_iter(vec![UpdateSpec::On(Weekday::Fri)]),
                     root: Some("/oops/this/is/another/path".into()),
+                    command: None,
                 },
                 FeedInfo {
                     name: "Balderdash".into(),
                     url: "http://www.balderdashcomic.com/rss.php".into(),
                     updates: HashSet::new(),
                     root: None,
+                    command: None,
                 },
             ])
         )

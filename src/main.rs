@@ -51,9 +51,21 @@ fn run() -> Result<(), Error> {
                 .help("The folder where feeds are stored")
                 .takes_value(true),
         )
+        .arg(
+            Arg::with_name("open-with")
+                .long("open-with")
+                .value_name("COMMAND")
+                .help(concat!(
+                    "The command to open the comic with. Any instance of @URL ",
+                    "will be replaced with the comic URL, and if @URL isn't ",
+                    "mentioned, the URL will be placed at the end of the command.",
+                ))
+                .takes_value(true),
+        )
         .arg(Arg::with_name("fetch").long("fetch").help(
             "Only download feeds, don't view them",
         ))
+        .max_term_width(120)
         .get_matches();
 
     let only_fetch = matches.value_of("fetch").is_some();
@@ -61,6 +73,7 @@ fn run() -> Result<(), Error> {
         only_fetch,
         matches.value_of("feeds"),
         matches.value_of("config"),
+        matches.value_of("open-with"),
     )?;
 
     let feeds = {
@@ -225,7 +238,7 @@ fn read_feed(args: &config::Args, feed: &mut Feed) -> Result<(), Error> {
     }
     let plural_feeds = if items.len() == 1 { "comic" } else { "comics" };
     println!("{} ({} {})", feed.info.name, items.len(), plural_feeds);
-    platform::open_url(items.first().unwrap())?;
+    args.open_url(&feed.info, items.first().unwrap())?;
     feed.read();
     feed.write_changes(&mut feed_file)?;
     Ok(())

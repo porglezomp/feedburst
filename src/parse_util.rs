@@ -21,6 +21,10 @@ impl<'a> Buffer<'a> {
         }
     }
 
+    pub fn peek(&self) -> Option<char> {
+        self.text.chars().next()
+    }
+
     pub fn trim_left(&self) -> Buffer<'a> {
         match self.text.find(|x: char| !x.is_whitespace()) {
             Some(offset) => self.advance(offset),
