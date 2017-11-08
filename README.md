@@ -4,8 +4,18 @@
 [![Build Status](https://travis-ci.org/porglezomp/feedburst.svg)](https://travis-ci.org/porglezomp/feedburst)
 [![Coverage Status](https://coveralls.io/repos/github/porglezomp/feedburst/badge.svg?branch=develop)](https://coveralls.io/github/porglezomp/feedburst?branch=develop)
 [![Release](https://img.shields.io/github/release/porglezomp/feedburst.svg)](https://github.com/porglezomp/feedburst/releases/latest)
+[![Crates.io](https://img.shields.io/crates/v/feedburst.svg)](https://crates.io/crates/feedburst)
 
 Feedburst is a tool that presents you your RSS feeds in chunks, according to a policy that you set.
+
+## Installing
+
+You can install Feedburst by going to the releases page and downloading the latest release for your platform.
+If you have `cargo` already installed, you can also get it by running:
+
+```
+cargo install feedburst
+```
 
 ## Configuring
 

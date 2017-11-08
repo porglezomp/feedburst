@@ -7,7 +7,7 @@ license = "GPL-3.0+"
 readme = "README.md"
 keywords = ["comic", "rss", "atom", "syndication"]
 categories = ["command-line-utilities"]
-publish = false
+publish = true
 description = """
 A tool to consume comic RSS feeds and present them to you in bunches, on a schedule of your choosing.
 """
