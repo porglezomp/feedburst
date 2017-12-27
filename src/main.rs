@@ -1,17 +1,17 @@
+extern crate chrono;
+extern crate clap;
 #[macro_use]
 extern crate log;
+extern crate open;
 extern crate pretty_env_logger;
 extern crate reqwest;
 extern crate syndication;
-extern crate chrono;
-extern crate clap;
-extern crate open;
 extern crate xdg;
 
 use std::io::Read;
 use std::str::FromStr;
 
-use clap::{Arg, App};
+use clap::{App, Arg};
 
 mod parser;
 mod parse_util;
@@ -22,7 +22,7 @@ mod config;
 use feed::Feed;
 use error::{Error, ParseError, Span};
 
-const APP_NAME: &'static str = env!("CARGO_PKG_NAME");
+const APP_NAME: &str = env!("CARGO_PKG_NAME");
 
 fn main() {
     if let Err(err) = run() {
@@ -51,9 +51,11 @@ fn run() -> Result<(), Error> {
                 .help("The folder where feeds are stored")
                 .takes_value(true),
         )
-        .arg(Arg::with_name("fetch").long("fetch").help(
-            "Only download feeds, don't view them",
-        ))
+        .arg(
+            Arg::with_name("fetch")
+                .long("fetch")
+                .help("Only download feeds, don't view them"),
+        )
         .get_matches();
 
     let only_fetch = matches.value_of("fetch").is_some();
@@ -69,12 +71,7 @@ fn run() -> Result<(), Error> {
         file.read_to_string(&mut text)?;
 
         let make_error_message = |row: usize, span: Span, msg: &str| -> Error {
-            let mut message =
-                format!(
-                "Line {}: Error parsing {:?}\n\n",
-                row,
-                args.config_path(),
-            );
+            let mut message = format!("Line {}: Error parsing {:?}\n\n", row, args.config_path(),);
             let line = text.lines().nth(row).unwrap_or_default();
             message.push_str(&format!("{}\n", line));
             match span {
@@ -134,12 +131,14 @@ fn run() -> Result<(), Error> {
         for group in groups {
             let tx = tx.clone();
             let args = args.clone();
-            std::thread::spawn(move || for feed in group {
-                let name = feed.info.name.clone();
-                match fetch_feed(&args, feed) {
-                    Ok(feed) => tx.send(feed).unwrap(),
-                    Err(Error::Msg(err)) => eprintln!("{}", err),
-                    Err(err) => eprintln!("Error in feed {}: {}", name, err),
+            std::thread::spawn(move || {
+                for feed in group {
+                    let name = feed.info.name.clone();
+                    match fetch_feed(&args, feed) {
+                        Ok(feed) => tx.send(feed).unwrap(),
+                        Err(Error::Msg(err)) => eprintln!("{}", err),
+                        Err(err) => eprintln!("Error in feed {}: {}", name, err),
+                    }
                 }
             });
         }

@@ -1,10 +1,10 @@
 use std::collections::HashSet;
-use chrono::{DateTime, Utc, MIN_DATE, Weekday};
-use std::io::{self, Read, Write, Seek};
+use chrono::{DateTime, Utc, Weekday, MIN_DATE};
+use std::io::{self, Read, Seek, Write};
 use std::path::PathBuf;
 
 use parser::parse_events;
-use error::{Error, Span, ParseError};
+use error::{Error, ParseError, Span};
 
 #[derive(Hash, Copy, Clone, Debug, PartialEq, Eq)]
 pub enum UpdateSpec {
@@ -137,8 +137,7 @@ impl Feed {
                         }
                     }
                 }
-                UpdateSpec::Overlap(_) |
-                UpdateSpec::Comics(_) => (),
+                UpdateSpec::Overlap(_) | UpdateSpec::Comics(_) => (),
             }
         }
 
@@ -174,9 +173,7 @@ impl Feed {
                     }
                     trace!("Rule passed!");
                 }
-                UpdateSpec::Every(_) |
-                UpdateSpec::On(_) |
-                UpdateSpec::Overlap(_) => (),
+                UpdateSpec::Every(_) | UpdateSpec::On(_) | UpdateSpec::Overlap(_) => (),
             }
         }
         true

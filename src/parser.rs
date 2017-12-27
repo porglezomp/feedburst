@@ -3,7 +3,7 @@ use std::iter::FromIterator;
 
 use chrono::Weekday;
 
-use feed::{FeedInfo, UpdateSpec, FeedEvent};
+use feed::{FeedEvent, FeedInfo, UpdateSpec};
 use error::ParseError;
 use parse_util::{Buffer, ParseResult};
 
@@ -96,10 +96,10 @@ fn parse_policy<'a>(buf: &Buffer<'a>) -> Result<(Buffer<'a>, UpdateSpec), ParseE
             .space_or_end()?;
         Ok((buf, UpdateSpec::Overlap(count)))
     } else if buf.text
-               .chars()
-               .next()
-               .map(|x| x.is_digit(10))
-               .unwrap_or_default()
+        .chars()
+        .next()
+        .map(|x| x.is_digit(10))
+        .unwrap_or_default()
     {
         let (buf, count) = parse_number(&buf)?;
         let buf = buf.trim_left()
@@ -123,9 +123,9 @@ fn parse_policy<'a>(buf: &Buffer<'a>) -> Result<(Buffer<'a>, UpdateSpec), ParseE
 
 fn parse_number<'a>(buf: &Buffer<'a>) -> ParseResult<'a, usize> {
     let buf = buf.trim_left();
-    let end = buf.text.find(|c: char| !c.is_digit(10)).unwrap_or_else(
-        || buf.text.len(),
-    );
+    let end = buf.text
+        .find(|c: char| !c.is_digit(10))
+        .unwrap_or_else(|| buf.text.len());
     if end == 0 {
         return Err(buf.expected("digit"));
     }
@@ -160,7 +160,6 @@ fn parse_weekday<'a>(buf: &Buffer<'a>) -> ParseResult<'a, Weekday> {
         Err(buf.expected("a weekday"))
     }
 }
-
 
 pub fn parse_events(input: &str) -> Result<Vec<FeedEvent>, ParseError> {
     let mut result = Vec::new();
@@ -215,9 +214,10 @@ mod test {
                 FeedInfo {
                     name: "Questionable Content".into(),
                     url: "http://questionablecontent.net/QCRSS.xml".into(),
-                    updates: HashSet::from_iter(
-                        vec![UpdateSpec::On(Weekday::Sat), UpdateSpec::Every(10)]
-                    ),
+                    updates: HashSet::from_iter(vec![
+                        UpdateSpec::On(Weekday::Sat),
+                        UpdateSpec::Every(10),
+                    ]),
                     root: None,
                 },
             ])
@@ -252,17 +252,19 @@ mod test {
                 FeedInfo {
                     name: "Electrum".into(),
                     url: "https://electrum.cubemelon.net/feed".into(),
-                    updates: HashSet::from_iter(
-                        vec![UpdateSpec::Comics(5), UpdateSpec::On(Weekday::Thu)]
-                    ),
+                    updates: HashSet::from_iter(vec![
+                        UpdateSpec::Comics(5),
+                        UpdateSpec::On(Weekday::Thu),
+                    ]),
                     root: None,
                 },
                 FeedInfo {
                     name: "Gunnerkrigg Court".into(),
                     url: "http://gunnerkrigg.com/rss.xml".into(),
-                    updates: HashSet::from_iter(
-                        vec![UpdateSpec::Comics(4), UpdateSpec::On(Weekday::Tue)]
-                    ),
+                    updates: HashSet::from_iter(vec![
+                        UpdateSpec::Comics(4),
+                        UpdateSpec::On(Weekday::Tue),
+                    ]),
                     root: None,
                 },
             ])
@@ -347,7 +349,7 @@ root "#,
 
     #[test]
     fn test_parse_events() {
-        use chrono::{Utc, TimeZone};
+        use chrono::{TimeZone, Utc};
         let input = r#"
 <http://www.goodbyetohalos.com/comic/01137>
 
@@ -359,21 +361,11 @@ read 2017-07-18T23:41:58.130248+00:00
         assert_eq!(
             parse_events(input),
             Ok(vec![
-                FeedEvent::ComicUrl(
-                    "http://www.goodbyetohalos.com/comic/01137".into()
-                ),
-                FeedEvent::ComicUrl(
-                    "http://www.goodbyetohalos.com/comic/01138-139".into()
-                ),
-                FeedEvent::Read(
-                    Utc.ymd(2017, 07, 17).and_hms_micro(03, 21, 21, 492180)
-                ),
-                FeedEvent::ComicUrl(
-                    "http://www.goodbyetohalos.com/comic/01140".into()
-                ),
-                FeedEvent::Read(
-                    Utc.ymd(2017, 07, 18).and_hms_micro(23, 41, 58, 130248)
-                ),
+                FeedEvent::ComicUrl("http://www.goodbyetohalos.com/comic/01137".into()),
+                FeedEvent::ComicUrl("http://www.goodbyetohalos.com/comic/01138-139".into()),
+                FeedEvent::Read(Utc.ymd(2017, 07, 17).and_hms_micro(03, 21, 21, 492180)),
+                FeedEvent::ComicUrl("http://www.goodbyetohalos.com/comic/01140".into()),
+                FeedEvent::Read(Utc.ymd(2017, 07, 18).and_hms_micro(23, 41, 58, 130248)),
             ])
         );
 
