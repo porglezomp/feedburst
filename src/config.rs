@@ -5,7 +5,6 @@ use std::fs::{File, OpenOptions};
 use error::Error;
 use feed::FeedInfo;
 
-
 #[derive(Debug, Clone)]
 enum PathWrapper {
     CreateIfMissing(PathBuf),
@@ -34,29 +33,20 @@ impl Args {
 
     pub fn config_path(&self) -> &PathBuf {
         match self.config {
-            PathWrapper::CreateIfMissing(ref path) |
-            PathWrapper::ErrorIfMissing(ref path) => path,
+            PathWrapper::CreateIfMissing(ref path) | PathWrapper::ErrorIfMissing(ref path) => path,
         }
     }
 
     pub fn config_file(&self) -> Result<File, Error> {
         match self.config {
-            PathWrapper::CreateIfMissing(ref path) => {
-                Ok(OpenOptions::new()
-                    .create(true)
-                    .write(true)
-                    .read(true)
-                    .open(path)
-                    .map_err(|err| {
-                        Error::Msg(format!("Cannot open file {:?}: {}", path, err))
-                    })?)
-            }
-            PathWrapper::ErrorIfMissing(ref path) => {
-                Ok(File::open(path).map_err(|err| {
-                    Error::Msg(format!("Cannot open file {:?}: {}", path, err))
-                })?)
-            }
-
+            PathWrapper::CreateIfMissing(ref path) => Ok(OpenOptions::new()
+                .create(true)
+                .write(true)
+                .read(true)
+                .open(path)
+                .map_err(|err| Error::Msg(format!("Cannot open file {:?}: {}", path, err)))?),
+            PathWrapper::ErrorIfMissing(ref path) => Ok(File::open(path)
+                .map_err(|err| Error::Msg(format!("Cannot open file {:?}: {}", path, err)))?),
         }
     }
 
@@ -68,9 +58,7 @@ impl Args {
             .write(true)
             .create(true)
             .open(&path)
-            .map_err(|err| {
-                Error::Msg(format!("Error opening feed file {:?}: {}", path, err))
-            })
+            .map_err(|err| Error::Msg(format!("Error opening feed file {:?}: {}", path, err)))
     }
 }
 
@@ -115,17 +103,13 @@ fn platform_data_path(path: &str) -> Result<PathBuf, Error> {
     if let Some(path) = env::var_os("XDG_DATA_HOME") {
         Ok(path.into())
     } else {
-        let xdg = ::xdg::BaseDirectories::with_prefix(::APP_NAME).map_err(
-            |err| {
-                Error::Msg(format!("{}", err))
-            },
-        )?;
+        let xdg = ::xdg::BaseDirectories::with_prefix(::APP_NAME)
+            .map_err(|err| Error::Msg(format!("{}", err)))?;
         if let Some(path) = xdg.find_data_file(path) {
             Ok(path)
         } else {
-            xdg.place_data_file(path).map_err(|err| {
-                Error::Msg(format!("{}", err))
-            })
+            xdg.place_data_file(path)
+                .map_err(|err| Error::Msg(format!("{}", err)))
         }
     }
 }
@@ -135,21 +119,16 @@ fn platform_config_path() -> Result<PathBuf, Error> {
     if let Some(path) = env::var_os("XDG_CONFIG_HOME") {
         Ok(path.into())
     } else {
-        let xdg = ::xdg::BaseDirectories::with_prefix(::APP_NAME).map_err(
-            |err| {
-                Error::Msg(format!("{}", err))
-            },
-        )?;
+        let xdg = ::xdg::BaseDirectories::with_prefix(::APP_NAME)
+            .map_err(|err| Error::Msg(format!("{}", err)))?;
         if let Some(path) = xdg.find_config_file("config.feeds") {
             Ok(path)
         } else {
-            xdg.place_config_file("config.feeds").map_err(|err| {
-                Error::Msg(format!("{}", err))
-            })
+            xdg.place_config_file("config.feeds")
+                .map_err(|err| Error::Msg(format!("{}", err)))
         }
     }
 }
-
 
 #[cfg(windows)]
 fn app_data_dir() -> Result<PathBuf, Error> {
@@ -166,8 +145,7 @@ fn platform_data_path(path: &str) -> Result<PathBuf, Error> {
     ::std::fs::create_dir_all(&path).map_err(|err| {
         Error::Msg(format!(
             "Error creating feeds directory {:?}: {}",
-            path,
-            err
+            path, err
         ))
     })?;
     Ok(path)
@@ -179,8 +157,7 @@ fn platform_config_path() -> Result<PathBuf, Error> {
     ::std::fs::create_dir_all(&path).map_err(|err| {
         Error::Msg(format!(
             "Error creating config directory {:?}: {}",
-            path,
-            err
+            path, err
         ))
     })?;
     Ok(path.join("config.feeds"))

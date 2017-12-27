@@ -159,7 +159,6 @@ impl<'a> Buffer<'a> {
     }
 }
 
-
 #[cfg(test)]
 mod test {
     use super::*;
