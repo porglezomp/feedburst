@@ -4,6 +4,7 @@ extern crate clap;
 extern crate log;
 extern crate open;
 extern crate pretty_env_logger;
+extern crate regex;
 extern crate reqwest;
 extern crate syndication;
 extern crate xdg;
@@ -195,6 +196,13 @@ fn fetch_feed(args: &config::Args, mut feed: Feed) -> Result<Feed, Error> {
                 feed.entries
                     .into_iter()
                     .rev()
+                    .filter(|x| {
+                        let keep = feed_info.keep_title(&x.title);
+                        if !keep {
+                            println!("skipping by title: {}", x.title);
+                        }
+                        keep
+                    })
                     .filter_map(|x| x.links.first().cloned())
                     .map(|x| x.href)
                     .collect()
@@ -204,6 +212,15 @@ fn fetch_feed(args: &config::Args, mut feed: Feed) -> Result<Feed, Error> {
                 feed.items
                     .into_iter()
                     .rev()
+                    .filter(|x| {
+                        let title = &x.title;
+                        let title = title.as_ref().map(|x| &x[..]).unwrap_or("");
+                        let keep = feed_info.keep_title(&title);
+                        if !keep {
+                            println!("skipping by title: {:?}", x.title);
+                        }
+                        keep
+                    })
                     .filter_map(|x| x.link)
                     .collect()
             }

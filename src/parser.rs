@@ -2,8 +2,9 @@ use std::collections::HashSet;
 use std::iter::FromIterator;
 
 use chrono::Weekday;
-
 use feed::{FeedEvent, FeedInfo, UpdateSpec};
+use regex::Regex;
+
 use error::ParseError;
 use parse_util::{Buffer, ParseResult};
 
@@ -48,7 +49,7 @@ fn parse_line<'a>(buf: &Buffer<'a>) -> ParseResult<'a, FeedInfo> {
         FeedInfo {
             name: name.into(),
             url: url.into(),
-            updates: HashSet::from_iter(policies),
+            update_policies: HashSet::from_iter(policies),
             root: None,
         },
     ))
@@ -95,6 +96,30 @@ fn parse_policy<'a>(buf: &Buffer<'a>) -> Result<(Buffer<'a>, UpdateSpec), ParseE
             .first_token_of_no_case(&["comics", "comic"])?
             .space_or_end()?;
         Ok((buf, UpdateSpec::Overlap(count)))
+    } else if buf.starts_with_no_case("keep") {
+        let buf = buf.token_no_case("keep")?
+            .space()?
+            .token_no_case("pattern")?
+            .space()?;
+        let c = buf.text.chars().next().ok_or(buf.expected("a pattern"))?;
+        let (buf, pat) = buf.read_between(c, c)?;
+        if let Err(err) = Regex::new(pat) {
+            // @Todo: Get the span right
+            return Err(buf.expected(format!("/{}/ to be a valid pattern: {}", pat, err)));
+        }
+        Ok((buf, UpdateSpec::KeepPattern(pat.into())))
+    } else if buf.starts_with_no_case("ignore") {
+        let buf = buf.token_no_case("ignore")?
+            .space()?
+            .token_no_case("pattern")?
+            .space()?;
+        let c = buf.text.chars().next().ok_or(buf.expected("a pattern"))?;
+        let (buf, pat) = buf.read_between(c, c)?;
+        if let Err(err) = Regex::new(pat) {
+            // @Todo: Get the span right
+            return Err(buf.expected(format!("/{}/ to be a valid pattern: {}", pat, err)));
+        }
+        Ok((buf, UpdateSpec::IgnorePattern(pat.into())))
     } else if buf.text
         .chars()
         .next()
@@ -113,7 +138,9 @@ fn parse_policy<'a>(buf: &Buffer<'a>) -> Result<(Buffer<'a>, UpdateSpec), ParseE
  - "@ on WEEKDAY"
  - "@ every # day(s)"
  - "@ # new comic(s)"
- - "@ overlap # comic(s)""#,
+ - "@ overlap # comic(s)"
+ - "@ keep pattern /pattern/"
+ - "@ ignore pattern /pattern/""#,
             buf.row,
             (buf.col, buf.col + buf.text.len()),
         );
@@ -214,7 +241,7 @@ mod test {
                 FeedInfo {
                     name: "Questionable Content".into(),
                     url: "http://questionablecontent.net/QCRSS.xml".into(),
-                    updates: HashSet::from_iter(vec![
+                    update_policies: HashSet::from_iter(vec![
                         UpdateSpec::On(Weekday::Sat),
                         UpdateSpec::Every(10),
                     ]),
@@ -242,7 +269,7 @@ mod test {
                 FeedInfo {
                     name: "Goodbye To Halos".into(),
                     url: "http://goodbyetohalos.com/feed/".into(),
-                    updates: HashSet::from_iter(vec![
+                    update_policies: HashSet::from_iter(vec![
                         UpdateSpec::Comics(3),
                         UpdateSpec::On(Weekday::Mon),
                         UpdateSpec::Overlap(2),
@@ -252,7 +279,7 @@ mod test {
                 FeedInfo {
                     name: "Electrum".into(),
                     url: "https://electrum.cubemelon.net/feed".into(),
-                    updates: HashSet::from_iter(vec![
+                    update_policies: HashSet::from_iter(vec![
                         UpdateSpec::Comics(5),
                         UpdateSpec::On(Weekday::Thu),
                     ]),
@@ -261,7 +288,7 @@ mod test {
                 FeedInfo {
                     name: "Gunnerkrigg Court".into(),
                     url: "http://gunnerkrigg.com/rss.xml".into(),
-                    updates: HashSet::from_iter(vec![
+                    update_policies: HashSet::from_iter(vec![
                         UpdateSpec::Comics(4),
                         UpdateSpec::On(Weekday::Tue),
                     ]),
@@ -297,31 +324,31 @@ root "#,
                 FeedInfo {
                     name: "Eth's Skin".into(),
                     url: "http://www.eths-skin.com/rss".into(),
-                    updates: HashSet::new(),
+                    update_policies: HashSet::new(),
                     root: None,
                 },
                 FeedInfo {
                     name: "Witchy".into(),
                     url: "http://feeds.feedburner.com/WitchyComic?format=xml".into(),
-                    updates: HashSet::from_iter(vec![UpdateSpec::On(Weekday::Wed)]),
+                    update_policies: HashSet::from_iter(vec![UpdateSpec::On(Weekday::Wed)]),
                     root: Some("/hello/world".into()),
                 },
                 FeedInfo {
                     name: "Cucumber Quest".into(),
                     url: "http://cucumber.gigidigi.com/feed/".into(),
-                    updates: HashSet::from_iter(vec![UpdateSpec::On(Weekday::Sun)]),
+                    update_policies: HashSet::from_iter(vec![UpdateSpec::On(Weekday::Sun)]),
                     root: Some("/hello/world".into()),
                 },
                 FeedInfo {
                     name: "Imogen Quest".into(),
                     url: "http://imogenquest.net/?feed=rss2".into(),
-                    updates: HashSet::from_iter(vec![UpdateSpec::On(Weekday::Fri)]),
+                    update_policies: HashSet::from_iter(vec![UpdateSpec::On(Weekday::Fri)]),
                     root: Some("/oops/this/is/another/path".into()),
                 },
                 FeedInfo {
                     name: "Balderdash".into(),
                     url: "http://www.balderdashcomic.com/rss.php".into(),
-                    updates: HashSet::new(),
+                    update_policies: HashSet::new(),
                     root: None,
                 },
             ])
@@ -370,5 +397,27 @@ read 2017-07-18T23:41:58.130248+00:00
         );
 
         assert!(parse_events("invalid").is_err());
+    }
+
+    #[test]
+    fn test_patterns() {
+        let pattern_text = "
+\"El Goonish Shive\" <http://www.egscomics.com/rss.php> @ ignore pattern /EGS:NP/ @ keep pattern \"\\d{4}-\\d{2}-\\d{2}\" @ keep pattern \u{1f49c}.\u{1f49c}
+";
+        assert_eq!(
+            parse_config(pattern_text),
+            Ok(vec![
+                FeedInfo {
+                    name: "El Goonish Shive".into(),
+                    url: "http://www.egscomics.com/rss.php".into(),
+                    update_policies: HashSet::from_iter(vec![
+                        UpdateSpec::IgnorePattern("EGS:NP".into()),
+                        UpdateSpec::KeepPattern("\\d{4}-\\d{2}-\\d{2}".into()),
+                        UpdateSpec::KeepPattern(".".into()),
+                    ]),
+                    root: None,
+                },
+            ])
+        );
     }
 }
