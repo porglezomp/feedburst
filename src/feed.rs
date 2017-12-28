@@ -105,6 +105,26 @@ impl FeedInfo {
         }
         true
     }
+
+    pub fn filter_url(&self, url: &str) -> bool {
+        // @Performance: Avoid compiling so many regexes
+        for policy in &self.update_policies {
+            match *policy {
+                UpdateSpec::Filter(FilterType::KeepUrl, ref pat) => {
+                    if !Regex::new(pat).unwrap().is_match(url) {
+                        return false;
+                    }
+                }
+                UpdateSpec::Filter(FilterType::IgnoreUrl, ref pat) => {
+                    if Regex::new(pat).unwrap().is_match(url) {
+                        return false;
+                    }
+                }
+                _ => (),
+            }
+        }
+        true
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]

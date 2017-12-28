@@ -205,6 +205,7 @@ fn fetch_feed(args: &config::Args, mut feed: Feed) -> Result<Feed, Error> {
                     })
                     .filter_map(|x| x.links.first().cloned())
                     .map(|x| x.href)
+                    .filter(|url| feed_info.filter_url(&url))
                     .collect()
             }
             Feed::RSS(feed) => {
@@ -222,6 +223,7 @@ fn fetch_feed(args: &config::Args, mut feed: Feed) -> Result<Feed, Error> {
                         keep
                     })
                     .filter_map(|x| x.link)
+                    .filter(|url| feed_info.filter_url(&url))
                     .collect()
             }
         }
