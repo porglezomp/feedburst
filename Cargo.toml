@@ -27,6 +27,7 @@ open = "1.2"
 log = "0.3.8"
 pretty_env_logger = "0.1.1"
 app_dirs = "1.1.1"
+regex = "0.2"
 
 [[bin]]
 name = "feedburst"
