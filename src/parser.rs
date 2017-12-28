@@ -166,6 +166,12 @@ fn parse_policy<'a>(buf: &Buffer<'a>) -> Result<(Buffer<'a>, UpdateSpec), ParseE
                 pat.into(),
             ),
         ))
+    } else if buf.starts_with_no_case("open") {
+        let buf = buf.token_no_case("open")?
+            .space()?
+            .token_no_case("all")?
+            .space_or_end()?;
+        Ok((buf, UpdateSpec::OpenAll))
     } else if buf.text
         .chars()
         .next()
@@ -187,7 +193,8 @@ fn parse_policy<'a>(buf: &Buffer<'a>) -> Result<(Buffer<'a>, UpdateSpec), ParseE
  - "@ # new comic(s)"
  - "@ overlap # comic(s)"
  - "@ keep pattern /pattern/"
- - "@ ignore pattern /pattern/""#,
+ - "@ ignore pattern /pattern/"
+ - "@ open all""#,
             buf.row,
             (buf.col, buf.col + buf.text.len()),
         );
@@ -310,6 +317,8 @@ mod test {
 
 "Gunnerkrigg Court" <http://gunnerkrigg.com/rss.xml> @ 4 new comics @ on tuesday
 
+# A tumblr comic that doesn't have forward/backward buttons on individual comics
+"GQutie!" <http://gqutiecomics.com/rss> @ Open all
 "#;
         assert_eq!(
             parse_config(buf),
@@ -342,6 +351,13 @@ mod test {
                         UpdateSpec::Comics(4),
                         UpdateSpec::On(Weekday::Tue),
                     ]),
+                    root: None,
+                    command: None,
+                },
+                FeedInfo {
+                    name: "GQutie!".into(),
+                    url: "http://gqutiecomics.com/rss".into(),
+                    update_policies: HashSet::from_iter(vec![UpdateSpec::OpenAll]),
                     root: None,
                     command: None,
                 },

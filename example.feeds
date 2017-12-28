@@ -11,3 +11,6 @@ root ./feeds/
 
 # Broken right now (good for testing)
 "Balderdash" <http://www.balderdashcomic.com/rss.php>
+
+# A tumblr comic that doesn't have forward/backward buttons on individual comics
+"GQutie!" <http://gqutiecomics.com/rss> @ Open all
