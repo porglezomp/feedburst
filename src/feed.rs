@@ -14,6 +14,7 @@ pub enum UpdateSpec {
     Comics(usize),
     Overlap(usize),
     Filter(FilterType, String),
+    OpenAll,
 }
 
 #[derive(Hash, Clone, Debug, PartialEq, Eq)]
@@ -189,7 +190,10 @@ impl Feed {
                         }
                     }
                 }
-                UpdateSpec::Overlap(_) | UpdateSpec::Comics(_) | UpdateSpec::Filter(_, _) => (),
+                UpdateSpec::Overlap(_)
+                | UpdateSpec::Comics(_)
+                | UpdateSpec::Filter(_, _)
+                | UpdateSpec::OpenAll => (),
             }
         }
 
@@ -228,7 +232,8 @@ impl Feed {
                 UpdateSpec::Every(_)
                 | UpdateSpec::On(_)
                 | UpdateSpec::Overlap(_)
-                | UpdateSpec::Filter(_, _) => (),
+                | UpdateSpec::Filter(_, _)
+                | UpdateSpec::OpenAll => (),
             }
         }
         true

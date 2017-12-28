@@ -256,7 +256,17 @@ fn read_feed(args: &config::Args, feed: &mut Feed) -> Result<(), Error> {
     }
     let plural_feeds = if items.len() == 1 { "comic" } else { "comics" };
     println!("{} ({} {})", feed.info.name, items.len(), plural_feeds);
-    args.open_url(&feed.info, items.first().unwrap())?;
+    if feed.info
+        .update_policies
+        .contains(&feed::UpdateSpec::OpenAll)
+    {
+        // Open all the comics instead of just the earliest one
+        for item in &items {
+            args.open_url(&feed.info, item)?;
+        }
+    } else {
+        args.open_url(&feed.info, items.first().unwrap())?;
+    }
     feed.read();
     feed.write_changes(&mut feed_file)?;
     Ok(())
