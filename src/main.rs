@@ -86,7 +86,7 @@ fn run() -> Result<(), Error> {
 
         let make_error_message = |row: usize, span: Span, msg: &str| -> Error {
             let mut message = format!("Line {}: Error parsing {:?}\n\n", row, args.config_path(),);
-            let line = text.lines().nth(row).unwrap_or_default();
+            let line = text.lines().nth(row - 1).unwrap_or_default();
             message.push_str(&format!("{}\n", line));
             match span {
                 None => message.push('\n'),
