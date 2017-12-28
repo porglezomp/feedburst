@@ -2,7 +2,6 @@ extern crate chrono;
 extern crate clap;
 #[macro_use]
 extern crate log;
-extern crate open;
 extern crate pretty_env_logger;
 extern crate regex;
 extern crate reqwest;
@@ -19,6 +18,7 @@ mod parse_util;
 mod feed;
 mod error;
 mod config;
+mod platform;
 
 use feed::Feed;
 use error::{Error, ParseError, Span};
@@ -53,10 +53,22 @@ fn run() -> Result<(), Error> {
                 .takes_value(true),
         )
         .arg(
+            Arg::with_name("open-with")
+                .long("open-with")
+                .value_name("COMMAND")
+                .help(concat!(
+                    "The command to open the comic with. Any instance of @URL ",
+                    "will be replaced with the comic URL, and if @URL isn't ",
+                    "mentioned, the URL will be placed at the end of the command.",
+                ))
+                .takes_value(true),
+        )
+        .arg(
             Arg::with_name("fetch")
                 .long("fetch")
                 .help("Only download feeds, don't view them"),
         )
+        .max_term_width(120)
         .get_matches();
 
     let only_fetch = matches.value_of("fetch").is_some();
@@ -64,6 +76,7 @@ fn run() -> Result<(), Error> {
         only_fetch,
         matches.value_of("feeds"),
         matches.value_of("config"),
+        matches.value_of("open-with"),
     )?;
 
     let feeds = {
@@ -243,10 +256,7 @@ fn read_feed(args: &config::Args, feed: &mut Feed) -> Result<(), Error> {
     }
     let plural_feeds = if items.len() == 1 { "comic" } else { "comics" };
     println!("{} ({} {})", feed.info.name, items.len(), plural_feeds);
-    let status = open::that(items.first().unwrap())?;
-    if !status.success() {
-        return Err(Error::Msg("Failed to open feed".into()));
-    }
+    args.open_url(&feed.info, items.first().unwrap())?;
     feed.read();
     feed.write_changes(&mut feed_file)?;
     Ok(())

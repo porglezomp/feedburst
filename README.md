@@ -60,6 +60,8 @@ If you want to use a different config for a single run, then use `--config FILE`
 
 ## Advanced Config
 
+### Feed Data Location
+
 By default, all of your feeds are stored together.
 On macOS and Linux, they're stored at:
 
@@ -84,3 +86,17 @@ root PATH
 This will store all feeds that come after that line at `PATH`.
 You can use as many `root` directives as you want to, and each feed will use whichever was specified most recently.
 If you'd like to reset later feeds to be stored at the default location, then just put `feed` on its own on the line.
+
+### Customizing the Browser
+
+By default feedburst will try to open comics in your default browser.
+If that doesn't work, or if you want to open your comics in another browser, you can customize the command it uses to open it using `command` in your config file.
+Any comics that come after that line will be opened using that command.
+
+For example,
+```
+command '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' --incognito
+```
+on macOS will use Chrome to open the comic in Incognito mode.
+
+If you'd like to reset later feeds to be opened with the default command, just put `command` on its own line.
