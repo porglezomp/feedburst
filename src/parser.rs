@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use std::iter::FromIterator;
 
 use chrono::Weekday;
-use feed::{FeedEvent, FeedInfo, UpdateSpec};
+use feed::{FeedEvent, FeedInfo, FilterType, UpdateSpec};
 use regex::Regex;
 
 use error::ParseError;
@@ -87,6 +87,7 @@ fn parse_policy<'a>(buf: &Buffer<'a>) -> Result<(Buffer<'a>, UpdateSpec), ParseE
         let (buf, count) = parse_number(&buf)?;
         let buf = buf.space()?
             .first_token_of_no_case(&["days", "day"])?
+            .0
             .space_or_end()?;
         Ok((buf, UpdateSpec::Every(count)))
     } else if buf.starts_with_no_case("overlap") {
@@ -94,32 +95,33 @@ fn parse_policy<'a>(buf: &Buffer<'a>) -> Result<(Buffer<'a>, UpdateSpec), ParseE
         let (buf, count) = parse_number(&buf)?;
         let buf = buf.space()?
             .first_token_of_no_case(&["comics", "comic"])?
+            .0
             .space_or_end()?;
         Ok((buf, UpdateSpec::Overlap(count)))
-    } else if buf.starts_with_no_case("keep") {
-        let buf = buf.token_no_case("keep")?
-            .space()?
-            .token_no_case("pattern")?
-            .space()?;
+    } else if buf.starts_with_no_case("keep") || buf.starts_with_no_case("ignore") {
+        let (buf, act_kind) = buf.first_token_of_no_case(&["keep", "ignore"])?;
+        let buf = buf.space()?;
+        let (buf, act_target) = buf.first_token_of_no_case(&["url", "title"])?;
+        let buf = buf.space()?;
         let c = buf.text.chars().next().ok_or(buf.expected("a pattern"))?;
         let (buf, pat) = buf.read_between(c, c)?;
         if let Err(err) = Regex::new(pat) {
             // @Todo: Get the span right
             return Err(buf.expected(format!("/{}/ to be a valid pattern: {}", pat, err)));
         }
-        Ok((buf, UpdateSpec::KeepPattern(pat.into())))
-    } else if buf.starts_with_no_case("ignore") {
-        let buf = buf.token_no_case("ignore")?
-            .space()?
-            .token_no_case("pattern")?
-            .space()?;
-        let c = buf.text.chars().next().ok_or(buf.expected("a pattern"))?;
-        let (buf, pat) = buf.read_between(c, c)?;
-        if let Err(err) = Regex::new(pat) {
-            // @Todo: Get the span right
-            return Err(buf.expected(format!("/{}/ to be a valid pattern: {}", pat, err)));
-        }
-        Ok((buf, UpdateSpec::IgnorePattern(pat.into())))
+        Ok((
+            buf,
+            UpdateSpec::Filter(
+                match (act_kind, act_target) {
+                    ("keep", "title") => FilterType::KeepTitle,
+                    ("keep", "url") => FilterType::KeepUrl,
+                    ("ignore", "title") => FilterType::IgnoreTitle,
+                    ("ignore", "url") => FilterType::IgnoreUrl,
+                    _ => unreachable!("invalid filter type"),
+                },
+                pat.into(),
+            ),
+        ))
     } else if buf.text
         .chars()
         .next()
@@ -130,7 +132,8 @@ fn parse_policy<'a>(buf: &Buffer<'a>) -> Result<(Buffer<'a>, UpdateSpec), ParseE
         let buf = buf.trim_left()
             .token_no_case("new")?
             .space()?
-            .first_token_of_no_case(&["comics", "comic"])?;
+            .first_token_of_no_case(&["comics", "comic"])?
+            .0;
         Ok((buf, UpdateSpec::Comics(count)))
     } else {
         let error = ParseError::expected(
@@ -402,7 +405,7 @@ read 2017-07-18T23:41:58.130248+00:00
     #[test]
     fn test_patterns() {
         let pattern_text = "
-\"El Goonish Shive\" <http://www.egscomics.com/rss.php> @ ignore pattern /EGS:NP/ @ keep pattern \"\\d{4}-\\d{2}-\\d{2}\" @ keep pattern \u{1f49c}.\u{1f49c}
+\"El Goonish Shive\" <http://www.egscomics.com/rss.php> @ ignore title /EGS:NP/ @ keep title \"\\d{4}-\\d{2}-\\d{2}\" @ keep url \u{1f49c}.\u{1f49c} @ ignore url /egsnp/
 ";
         assert_eq!(
             parse_config(pattern_text),
@@ -411,9 +414,10 @@ read 2017-07-18T23:41:58.130248+00:00
                     name: "El Goonish Shive".into(),
                     url: "http://www.egscomics.com/rss.php".into(),
                     update_policies: HashSet::from_iter(vec![
-                        UpdateSpec::IgnorePattern("EGS:NP".into()),
-                        UpdateSpec::KeepPattern("\\d{4}-\\d{2}-\\d{2}".into()),
-                        UpdateSpec::KeepPattern(".".into()),
+                        UpdateSpec::Filter(FilterType::IgnoreTitle, "EGS:NP".into()),
+                        UpdateSpec::Filter(FilterType::KeepTitle, "\\d{4}-\\d{2}-\\d{2}".into()),
+                        UpdateSpec::Filter(FilterType::KeepUrl, ".".into()),
+                        UpdateSpec::Filter(FilterType::IgnoreUrl, "egsnp".into()),
                     ]),
                     root: None,
                 },

@@ -13,8 +13,15 @@ pub enum UpdateSpec {
     Every(usize),
     Comics(usize),
     Overlap(usize),
-    KeepPattern(String),
-    IgnorePattern(String),
+    Filter(FilterType, String),
+}
+
+#[derive(Hash, Clone, Debug, PartialEq, Eq)]
+pub enum FilterType {
+    KeepTitle,
+    IgnoreTitle,
+    KeepUrl,
+    IgnoreUrl,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -79,16 +86,16 @@ impl FeedInfo {
         })
     }
 
-    pub fn keep_title(&self, title: &str) -> bool {
+    pub fn filter_title(&self, title: &str) -> bool {
         // @Performance: Avoid compiling so many regexes
         for policy in &self.update_policies {
             match *policy {
-                UpdateSpec::KeepPattern(ref pat) => {
+                UpdateSpec::Filter(FilterType::KeepTitle, ref pat) => {
                     if !Regex::new(pat).unwrap().is_match(title) {
                         return false;
                     }
                 }
-                UpdateSpec::IgnorePattern(ref pat) => {
+                UpdateSpec::Filter(FilterType::IgnoreTitle, ref pat) => {
                     if Regex::new(pat).unwrap().is_match(title) {
                         return false;
                     }
@@ -161,10 +168,7 @@ impl Feed {
                         }
                     }
                 }
-                UpdateSpec::Overlap(_)
-                | UpdateSpec::Comics(_)
-                | UpdateSpec::KeepPattern(_)
-                | UpdateSpec::IgnorePattern(_) => (),
+                UpdateSpec::Overlap(_) | UpdateSpec::Comics(_) | UpdateSpec::Filter(_, _) => (),
             }
         }
 
@@ -203,8 +207,7 @@ impl Feed {
                 UpdateSpec::Every(_)
                 | UpdateSpec::On(_)
                 | UpdateSpec::Overlap(_)
-                | UpdateSpec::KeepPattern(_)
-                | UpdateSpec::IgnorePattern(_) => (),
+                | UpdateSpec::Filter(_, _) => (),
             }
         }
         true
