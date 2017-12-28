@@ -79,28 +79,28 @@ impl<'a> Buffer<'a> {
     }
 
     #[allow(unused)]
-    pub fn first_token_of(&self, tokens: &[&str]) -> ParseSuccess<'a> {
+    pub fn first_token_of(&self, tokens: &[&str]) -> ParseResult<'a, &'a str> {
         if tokens.is_empty() {
-            return Ok(*self);
+            return Ok((*self, ""));
         }
 
         for token in tokens {
             if self.starts_with(token) {
-                return Ok(self.advance(token.len()));
+                return Ok((self.advance(token.len()), &self.text[..token.len()]));
             }
         }
 
         Err(self.first_token_err(tokens))
     }
 
-    pub fn first_token_of_no_case(&self, tokens: &[&str]) -> ParseSuccess<'a> {
+    pub fn first_token_of_no_case<'b>(&self, tokens: &[&'b str]) -> ParseResult<'a, &'b str> {
         if tokens.is_empty() {
-            return Ok(*self);
+            return Ok((*self, ""));
         }
 
         for token in tokens {
             if self.starts_with_no_case(token) {
-                return Ok(self.advance(token.len()));
+                return Ok((self.advance(token.len()), token));
             }
         }
 
@@ -162,7 +162,6 @@ impl<'a> Buffer<'a> {
         ParseError::expected(message, self.row, self.col)
     }
 }
-
 
 #[cfg(test)]
 mod test {
@@ -326,9 +325,15 @@ mod test {
             text: "s",
         };
 
-        assert_eq!(input.first_token_of(&["Tokens", "Token"]), Ok(empty));
-        assert_eq!(input.first_token_of(&["Token", "Tokens"]), Ok(s_input));
-        assert_eq!(input.first_token_of(&[]), Ok(input));
+        assert_eq!(
+            input.first_token_of(&["Tokens", "Token"]),
+            Ok((empty, "Tokens"))
+        );
+        assert_eq!(
+            input.first_token_of(&["Token", "Tokens"]),
+            Ok((s_input, "Token"))
+        );
+        assert_eq!(input.first_token_of(&[]), Ok((input, "")));
 
         // Error messages should be correct
         assert_eq!(
@@ -346,13 +351,13 @@ mod test {
 
         assert_eq!(
             input.first_token_of_no_case(&["TOKENS", "token"]),
-            Ok(empty)
+            Ok((empty, "TOKENS"))
         );
         assert_eq!(
             input.first_token_of_no_case(&["Token", "tOkEns"]),
-            Ok(s_input)
+            Ok((s_input, "Token"))
         );
-        assert_eq!(input.first_token_of_no_case(&[]), Ok(input));
+        assert_eq!(input.first_token_of_no_case(&[]), Ok((input, "")));
         assert!(input.first_token_of_no_case(&["ZOOP"]).is_err());
     }
 

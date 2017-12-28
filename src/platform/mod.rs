@@ -6,7 +6,7 @@ pub use self::linux::open_url;
 #[cfg(target_os = "windows")]
 mod windows;
 #[cfg(target_os = "windows")]
-pub use self::windows::{open_url, data_path, config_path};
+pub use self::windows::{config_path, data_path, open_url};
 
 #[cfg(target_os = "macos")]
 mod macos;
@@ -17,4 +17,4 @@ pub use self::macos::open_url;
 #[cfg(unix)]
 mod unix;
 #[cfg(unix)]
-pub use self::unix::{data_path, config_path};
+pub use self::unix::{config_path, data_path};

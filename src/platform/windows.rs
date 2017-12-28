@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::ffi::OsStr;
 use std::process::Command;
-use std::{fs, env};
+use std::{env, fs};
 
 use error::Error;
 
@@ -18,8 +18,7 @@ pub fn data_path(path: &str) -> Result<PathBuf, Error> {
     fs::create_dir_all(&path).map_err(|err| {
         Error::Msg(format!(
             "Error creating feeds directory {:?}: {}",
-            path,
-            err
+            path, err
         ))
     })?;
     Ok(path)
@@ -30,8 +29,7 @@ pub fn config_path() -> Result<PathBuf, Error> {
     fs::create_dir_all(&path).map_err(|err| {
         Error::Msg(format!(
             "Error creating config directory {:?}: {}",
-            path,
-            err
+            path, err
         ))
     })?;
     Ok(path.join("config.feeds"))

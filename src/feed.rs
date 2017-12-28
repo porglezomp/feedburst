@@ -1,24 +1,34 @@
 use std::collections::HashSet;
-use chrono::{DateTime, Utc, MIN_DATE, Weekday};
-use std::io::{self, Read, Write, Seek};
+use chrono::{DateTime, Utc, Weekday, MIN_DATE};
+use regex::Regex;
+use std::io::{self, Read, Seek, Write};
 use std::path::PathBuf;
 
 use parser::parse_events;
-use error::{Error, Span, ParseError};
+use error::{Error, ParseError, Span};
 
-#[derive(Hash, Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Hash, Clone, Debug, PartialEq, Eq)]
 pub enum UpdateSpec {
     On(Weekday),
     Every(usize),
     Comics(usize),
     Overlap(usize),
+    Filter(FilterType, String),
+}
+
+#[derive(Hash, Clone, Debug, PartialEq, Eq)]
+pub enum FilterType {
+    KeepTitle,
+    IgnoreTitle,
+    KeepUrl,
+    IgnoreUrl,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FeedInfo {
     pub name: String,
     pub url: String,
-    pub updates: HashSet<UpdateSpec>,
+    pub update_policies: HashSet<UpdateSpec>,
     pub root: Option<PathBuf>,
     pub command: Option<Vec<String>>,
 }
@@ -66,6 +76,7 @@ impl FeedInfo {
                 }
             }
         }
+
         Ok(Feed {
             info: self.clone(),
             new_events: Vec::new(),
@@ -74,6 +85,46 @@ impl FeedInfo {
             new_comics,
             events,
         })
+    }
+
+    pub fn filter_title(&self, title: &str) -> bool {
+        // @Performance: Avoid compiling so many regexes
+        for policy in &self.update_policies {
+            match *policy {
+                UpdateSpec::Filter(FilterType::KeepTitle, ref pat) => {
+                    if !Regex::new(pat).unwrap().is_match(title) {
+                        return false;
+                    }
+                }
+                UpdateSpec::Filter(FilterType::IgnoreTitle, ref pat) => {
+                    if Regex::new(pat).unwrap().is_match(title) {
+                        return false;
+                    }
+                }
+                _ => (),
+            }
+        }
+        true
+    }
+
+    pub fn filter_url(&self, url: &str) -> bool {
+        // @Performance: Avoid compiling so many regexes
+        for policy in &self.update_policies {
+            match *policy {
+                UpdateSpec::Filter(FilterType::KeepUrl, ref pat) => {
+                    if !Regex::new(pat).unwrap().is_match(url) {
+                        return false;
+                    }
+                }
+                UpdateSpec::Filter(FilterType::IgnoreUrl, ref pat) => {
+                    if Regex::new(pat).unwrap().is_match(url) {
+                        return false;
+                    }
+                }
+                _ => (),
+            }
+        }
+        true
     }
 }
 
@@ -109,7 +160,7 @@ impl Feed {
         let mut day_passed = false;
         let mut day_relevant = false;
 
-        for policy in &self.info.updates {
+        for policy in &self.info.update_policies {
             match *policy {
                 UpdateSpec::Every(num_days) => {
                     trace!(
@@ -138,8 +189,7 @@ impl Feed {
                         }
                     }
                 }
-                UpdateSpec::Overlap(_) |
-                UpdateSpec::Comics(_) => (),
+                UpdateSpec::Overlap(_) | UpdateSpec::Comics(_) | UpdateSpec::Filter(_, _) => (),
             }
         }
 
@@ -160,7 +210,7 @@ impl Feed {
             return false;
         }
 
-        for policy in &self.info.updates {
+        for policy in &self.info.update_policies {
             match *policy {
                 UpdateSpec::Comics(num_comics) => {
                     trace!(
@@ -175,9 +225,10 @@ impl Feed {
                     }
                     trace!("Rule passed!");
                 }
-                UpdateSpec::Every(_) |
-                UpdateSpec::On(_) |
-                UpdateSpec::Overlap(_) => (),
+                UpdateSpec::Every(_)
+                | UpdateSpec::On(_)
+                | UpdateSpec::Overlap(_)
+                | UpdateSpec::Filter(_, _) => (),
             }
         }
         true
@@ -205,7 +256,7 @@ impl Feed {
 
     pub fn get_reading_list(&self) -> Vec<String> {
         let mut additional = 0;
-        for policy in &self.info.updates {
+        for policy in &self.info.update_policies {
             if let UpdateSpec::Overlap(n) = *policy {
                 additional = ::std::cmp::max(n, additional);
             }

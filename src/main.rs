@@ -1,16 +1,17 @@
+extern crate chrono;
+extern crate clap;
 #[macro_use]
 extern crate log;
 extern crate pretty_env_logger;
+extern crate regex;
 extern crate reqwest;
 extern crate syndication;
-extern crate chrono;
-extern crate clap;
 extern crate xdg;
 
 use std::io::Read;
 use std::str::FromStr;
 
-use clap::{Arg, App};
+use clap::{App, Arg};
 
 mod parser;
 mod parse_util;
@@ -22,7 +23,7 @@ mod platform;
 use feed::Feed;
 use error::{Error, ParseError, Span};
 
-const APP_NAME: &'static str = env!("CARGO_PKG_NAME");
+const APP_NAME: &str = env!("CARGO_PKG_NAME");
 
 fn main() {
     if let Err(err) = run() {
@@ -62,9 +63,11 @@ fn run() -> Result<(), Error> {
                 ))
                 .takes_value(true),
         )
-        .arg(Arg::with_name("fetch").long("fetch").help(
-            "Only download feeds, don't view them",
-        ))
+        .arg(
+            Arg::with_name("fetch")
+                .long("fetch")
+                .help("Only download feeds, don't view them"),
+        )
         .max_term_width(120)
         .get_matches();
 
@@ -82,12 +85,7 @@ fn run() -> Result<(), Error> {
         file.read_to_string(&mut text)?;
 
         let make_error_message = |row: usize, span: Span, msg: &str| -> Error {
-            let mut message =
-                format!(
-                "Line {}: Error parsing {:?}\n\n",
-                row,
-                args.config_path(),
-            );
+            let mut message = format!("Line {}: Error parsing {:?}\n\n", row, args.config_path(),);
             let line = text.lines().nth(row).unwrap_or_default();
             message.push_str(&format!("{}\n", line));
             match span {
@@ -147,12 +145,14 @@ fn run() -> Result<(), Error> {
         for group in groups {
             let tx = tx.clone();
             let args = args.clone();
-            std::thread::spawn(move || for feed in group {
-                let name = feed.info.name.clone();
-                match fetch_feed(&args, feed) {
-                    Ok(feed) => tx.send(feed).unwrap(),
-                    Err(Error::Msg(err)) => eprintln!("{}", err),
-                    Err(err) => eprintln!("Error in feed {}: {}", name, err),
+            std::thread::spawn(move || {
+                for feed in group {
+                    let name = feed.info.name.clone();
+                    match fetch_feed(&args, feed) {
+                        Ok(feed) => tx.send(feed).unwrap(),
+                        Err(Error::Msg(err)) => eprintln!("{}", err),
+                        Err(err) => eprintln!("Error in feed {}: {}", name, err),
+                    }
                 }
             });
         }
@@ -209,8 +209,16 @@ fn fetch_feed(args: &config::Args, mut feed: Feed) -> Result<Feed, Error> {
                 feed.entries
                     .into_iter()
                     .rev()
+                    .filter(|x| {
+                        let keep = feed_info.filter_title(&x.title);
+                        if !keep {
+                            println!("skipping by title: {}", x.title);
+                        }
+                        keep
+                    })
                     .filter_map(|x| x.links.first().cloned())
                     .map(|x| x.href)
+                    .filter(|url| feed_info.filter_url(&url))
                     .collect()
             }
             Feed::RSS(feed) => {
@@ -218,7 +226,17 @@ fn fetch_feed(args: &config::Args, mut feed: Feed) -> Result<Feed, Error> {
                 feed.items
                     .into_iter()
                     .rev()
+                    .filter(|x| {
+                        let title = &x.title;
+                        let title = title.as_ref().map(|x| &x[..]).unwrap_or("");
+                        let keep = feed_info.filter_title(&title);
+                        if !keep {
+                            println!("skipping by title: {:?}", x.title);
+                        }
+                        keep
+                    })
                     .filter_map(|x| x.link)
+                    .filter(|url| feed_info.filter_url(&url))
                     .collect()
             }
         }

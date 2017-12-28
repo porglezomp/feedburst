@@ -4,8 +4,18 @@
 [![Build Status](https://travis-ci.org/porglezomp/feedburst.svg)](https://travis-ci.org/porglezomp/feedburst)
 [![Coverage Status](https://coveralls.io/repos/github/porglezomp/feedburst/badge.svg?branch=develop)](https://coveralls.io/github/porglezomp/feedburst?branch=develop)
 [![Release](https://img.shields.io/github/release/porglezomp/feedburst.svg)](https://github.com/porglezomp/feedburst/releases/latest)
+[![Crates.io](https://img.shields.io/crates/v/feedburst.svg)](https://crates.io/crates/feedburst)
 
 Feedburst is a tool that presents you your RSS feeds in chunks, according to a policy that you set.
+
+## Installing
+
+You can install Feedburst by going to the releases page and downloading the latest release for your platform.
+If you have `cargo` already installed, you can also get it by running:
+
+```
+cargo install feedburst
+```
 
 ## Configuring
 
@@ -26,6 +36,8 @@ The `@policy` are rules for when and how you’d like that comic feed to be pres
 - `@ overlap # comic(s)`: Show the last # comics that you read.
 - `@ on monday/tuesday/etc…`: Show the comics once the corresponding day has passed.
 - `@ every # day(s)`: Wait at least # days since you last read the comic.
+- `@ ignore url /pattern/`: Don't include comics that have `pattern` in the URL (also `ignore title`).
+- `@ keep title /pattern/`: Only include comics that have `pattern` in the title (also `keep url`).
 
 For more features, [see the advanced config section](#advanced-config).
 

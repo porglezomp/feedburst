@@ -8,7 +8,6 @@ use feed::FeedInfo;
 use platform;
 use parser;
 
-
 #[derive(Debug, Clone)]
 enum PathWrapper {
     CreateIfMissing(PathBuf),
@@ -52,29 +51,20 @@ impl Args {
 
     pub fn config_path(&self) -> &PathBuf {
         match self.config {
-            PathWrapper::CreateIfMissing(ref path) |
-            PathWrapper::ErrorIfMissing(ref path) => path,
+            PathWrapper::CreateIfMissing(ref path) | PathWrapper::ErrorIfMissing(ref path) => path,
         }
     }
 
     pub fn config_file(&self) -> Result<File, Error> {
         match self.config {
-            PathWrapper::CreateIfMissing(ref path) => {
-                Ok(OpenOptions::new()
-                    .create(true)
-                    .write(true)
-                    .read(true)
-                    .open(path)
-                    .map_err(|err| {
-                        Error::Msg(format!("Cannot open file {:?}: {}", path, err))
-                    })?)
-            }
-            PathWrapper::ErrorIfMissing(ref path) => {
-                Ok(File::open(path).map_err(|err| {
-                    Error::Msg(format!("Cannot open file {:?}: {}", path, err))
-                })?)
-            }
-
+            PathWrapper::CreateIfMissing(ref path) => Ok(OpenOptions::new()
+                .create(true)
+                .write(true)
+                .read(true)
+                .open(path)
+                .map_err(|err| Error::Msg(format!("Cannot open file {:?}: {}", path, err)))?),
+            PathWrapper::ErrorIfMissing(ref path) => Ok(File::open(path)
+                .map_err(|err| Error::Msg(format!("Cannot open file {:?}: {}", path, err)))?),
         }
     }
 
@@ -86,9 +76,7 @@ impl Args {
             .write(true)
             .create(true)
             .open(&path)
-            .map_err(|err| {
-                Error::Msg(format!("Error opening feed file {:?}: {}", path, err))
-            })
+            .map_err(|err| Error::Msg(format!("Error opening feed file {:?}: {}", path, err)))
     }
 
     pub fn open_url(&self, feed: &FeedInfo, url: &str) -> Result<(), Error> {
