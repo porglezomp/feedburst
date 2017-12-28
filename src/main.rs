@@ -1,28 +1,29 @@
+extern crate chrono;
+extern crate clap;
 #[macro_use]
 extern crate log;
 extern crate pretty_env_logger;
+extern crate regex;
 extern crate reqwest;
 extern crate syndication;
-extern crate chrono;
-extern crate clap;
-extern crate open;
 extern crate xdg;
 
 use std::io::Read;
 use std::str::FromStr;
 
-use clap::{Arg, App};
+use clap::{App, Arg};
 
 mod parser;
 mod parse_util;
 mod feed;
 mod error;
 mod config;
+mod platform;
 
 use feed::Feed;
 use error::{Error, ParseError, Span};
 
-const APP_NAME: &'static str = env!("CARGO_PKG_NAME");
+const APP_NAME: &str = env!("CARGO_PKG_NAME");
 
 fn main() {
     if let Err(err) = run() {
@@ -51,9 +52,23 @@ fn run() -> Result<(), Error> {
                 .help("The folder where feeds are stored")
                 .takes_value(true),
         )
-        .arg(Arg::with_name("fetch").long("fetch").help(
-            "Only download feeds, don't view them",
-        ))
+        .arg(
+            Arg::with_name("open-with")
+                .long("open-with")
+                .value_name("COMMAND")
+                .help(concat!(
+                    "The command to open the comic with. Any instance of @URL ",
+                    "will be replaced with the comic URL, and if @URL isn't ",
+                    "mentioned, the URL will be placed at the end of the command.",
+                ))
+                .takes_value(true),
+        )
+        .arg(
+            Arg::with_name("fetch")
+                .long("fetch")
+                .help("Only download feeds, don't view them"),
+        )
+        .max_term_width(120)
         .get_matches();
 
     let only_fetch = matches.value_of("fetch").is_some();
@@ -61,6 +76,7 @@ fn run() -> Result<(), Error> {
         only_fetch,
         matches.value_of("feeds"),
         matches.value_of("config"),
+        matches.value_of("open-with"),
     )?;
 
     let feeds = {
@@ -69,13 +85,8 @@ fn run() -> Result<(), Error> {
         file.read_to_string(&mut text)?;
 
         let make_error_message = |row: usize, span: Span, msg: &str| -> Error {
-            let mut message =
-                format!(
-                "Line {}: Error parsing {:?}\n\n",
-                row,
-                args.config_path(),
-            );
-            let line = text.lines().nth(row).unwrap_or_default();
+            let mut message = format!("Line {}: Error parsing {:?}\n\n", row, args.config_path(),);
+            let line = text.lines().nth(row - 1).unwrap_or_default();
             message.push_str(&format!("{}\n", line));
             match span {
                 None => message.push('\n'),
@@ -134,12 +145,14 @@ fn run() -> Result<(), Error> {
         for group in groups {
             let tx = tx.clone();
             let args = args.clone();
-            std::thread::spawn(move || for feed in group {
-                let name = feed.info.name.clone();
-                match fetch_feed(&args, feed) {
-                    Ok(feed) => tx.send(feed).unwrap(),
-                    Err(Error::Msg(err)) => eprintln!("{}", err),
-                    Err(err) => eprintln!("Error in feed {}: {}", name, err),
+            std::thread::spawn(move || {
+                for feed in group {
+                    let name = feed.info.name.clone();
+                    match fetch_feed(&args, feed) {
+                        Ok(feed) => tx.send(feed).unwrap(),
+                        Err(Error::Msg(err)) => eprintln!("{}", err),
+                        Err(err) => eprintln!("Error in feed {}: {}", name, err),
+                    }
                 }
             });
         }
@@ -196,8 +209,16 @@ fn fetch_feed(args: &config::Args, mut feed: Feed) -> Result<Feed, Error> {
                 feed.entries
                     .into_iter()
                     .rev()
+                    .filter(|x| {
+                        let keep = feed_info.filter_title(&x.title);
+                        if !keep {
+                            println!("skipping by title: {}", x.title);
+                        }
+                        keep
+                    })
                     .filter_map(|x| x.links.first().cloned())
                     .map(|x| x.href)
+                    .filter(|url| feed_info.filter_url(&url))
                     .collect()
             }
             Feed::RSS(feed) => {
@@ -205,7 +226,17 @@ fn fetch_feed(args: &config::Args, mut feed: Feed) -> Result<Feed, Error> {
                 feed.items
                     .into_iter()
                     .rev()
+                    .filter(|x| {
+                        let title = &x.title;
+                        let title = title.as_ref().map(|x| &x[..]).unwrap_or("");
+                        let keep = feed_info.filter_title(&title);
+                        if !keep {
+                            println!("skipping by title: {:?}", x.title);
+                        }
+                        keep
+                    })
                     .filter_map(|x| x.link)
+                    .filter(|url| feed_info.filter_url(&url))
                     .collect()
             }
         }
@@ -225,9 +256,16 @@ fn read_feed(args: &config::Args, feed: &mut Feed) -> Result<(), Error> {
     }
     let plural_feeds = if items.len() == 1 { "comic" } else { "comics" };
     println!("{} ({} {})", feed.info.name, items.len(), plural_feeds);
-    let status = open::that(items.first().unwrap())?;
-    if !status.success() {
-        return Err(Error::Msg("Failed to open feed".into()));
+    if feed.info
+        .update_policies
+        .contains(&feed::UpdateSpec::OpenAll)
+    {
+        // Open all the comics instead of just the earliest one
+        for item in &items {
+            args.open_url(&feed.info, item)?;
+        }
+    } else {
+        args.open_url(&feed.info, items.first().unwrap())?;
     }
     feed.read();
     feed.write_changes(&mut feed_file)?;

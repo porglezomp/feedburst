@@ -1,4 +1,4 @@
-use std::{io, fmt};
+use std::{fmt, io};
 use reqwest;
 
 #[derive(Debug)]
