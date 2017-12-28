@@ -36,6 +36,8 @@ The `@policy` are rules for when and how you’d like that comic feed to be pres
 - `@ overlap # comic(s)`: Show the last # comics that you read.
 - `@ on monday/tuesday/etc…`: Show the comics once the corresponding day has passed.
 - `@ every # day(s)`: Wait at least # days since you last read the comic.
+- `@ ignore url /pattern/`: Don't include comics that have `pattern` in the URL (also `ignore title`).
+- `@ keep title /pattern/`: Only include comics that have `pattern` in the title (also `keep url`).
 
 For more features, [see the advanced config section](#advanced-config).
 
