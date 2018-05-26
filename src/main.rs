@@ -13,15 +13,15 @@ use std::str::FromStr;
 
 use clap::{App, Arg};
 
-mod parser;
-mod parse_util;
-mod feed;
-mod error;
 mod config;
+mod error;
+mod feed;
+mod parse_util;
+mod parser;
 mod platform;
 
-use feed::Feed;
 use error::{Error, ParseError, Span};
+use feed::Feed;
 
 const APP_NAME: &str = env!("CARGO_PKG_NAME");
 
@@ -256,7 +256,8 @@ fn read_feed(args: &config::Args, feed: &mut Feed) -> Result<(), Error> {
     }
     let plural_feeds = if items.len() == 1 { "comic" } else { "comics" };
     println!("{} ({} {})", feed.info.name, items.len(), plural_feeds);
-    if feed.info
+    if feed
+        .info
         .update_policies
         .contains(&feed::UpdateSpec::OpenAll)
     {

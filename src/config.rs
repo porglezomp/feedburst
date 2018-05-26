@@ -1,12 +1,12 @@
 use std::env;
-use std::path::{Path, PathBuf};
 use std::fs::{File, OpenOptions};
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use error::{Error, ParseError};
 use feed::FeedInfo;
-use platform;
 use parser;
+use platform;
 
 #[derive(Debug, Clone)]
 enum PathWrapper {
