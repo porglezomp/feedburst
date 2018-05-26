@@ -85,7 +85,11 @@ fn run() -> Result<(), Error> {
         file.read_to_string(&mut text)?;
 
         let make_error_message = |row: usize, span: Span, msg: &str| -> Error {
-            let mut message = format!("Line {}: Error parsing {:?}\n\n", row, args.config_path(),);
+            let mut message = format!(
+                "Line {}: Error parsing {}\n\n",
+                row,
+                args.config_path().display(),
+            );
             let line = text.lines().nth(row - 1).unwrap_or_default();
             message.push_str(&format!("{}\n", line));
             match span {
@@ -110,8 +114,8 @@ fn run() -> Result<(), Error> {
 
     if feeds.is_empty() {
         println!(
-            "You're not following any comics. Add some to your config file at {:?}",
-            args.config_path(),
+            "You're not following any comics. Add some to your config file at {}",
+            args.config_path().display(),
         );
         return Ok(());
     }
@@ -212,7 +216,7 @@ fn fetch_feed(args: &config::Args, mut feed: Feed) -> Result<Feed, Error> {
                     .filter(|x| {
                         let keep = feed_info.filter_title(&x.title);
                         if !keep {
-                            println!("skipping by title: {}", x.title);
+                            debug!("skipping by title: {}", x.title);
                         }
                         keep
                     })
@@ -231,7 +235,7 @@ fn fetch_feed(args: &config::Args, mut feed: Feed) -> Result<Feed, Error> {
                         let title = title.as_ref().map(|x| &x[..]).unwrap_or("");
                         let keep = feed_info.filter_title(&title);
                         if !keep {
-                            println!("skipping by title: {:?}", x.title);
+                            debug!("skipping by title: {:?}", x.title);
                         }
                         keep
                     })
