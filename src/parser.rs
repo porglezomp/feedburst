@@ -129,7 +129,8 @@ fn parse_policy<'a>(buf: &Buffer<'a>) -> Result<(Buffer<'a>, UpdateSpec), ParseE
     } else if buf.starts_with_no_case("every") {
         let buf = buf.token_no_case("every")?.space()?;
         let (buf, count) = parse_number(&buf)?;
-        let buf = buf.space()?
+        let buf = buf
+            .space()?
             .first_token_of_no_case(&["days", "day"])?
             .0
             .space_or_end()?;
@@ -137,7 +138,8 @@ fn parse_policy<'a>(buf: &Buffer<'a>) -> Result<(Buffer<'a>, UpdateSpec), ParseE
     } else if buf.starts_with_no_case("overlap") {
         let buf = buf.token_no_case("overlap")?.space()?;
         let (buf, count) = parse_number(&buf)?;
-        let buf = buf.space()?
+        let buf = buf
+            .space()?
             .first_token_of_no_case(&["comics", "comic"])?
             .0
             .space_or_end()?;
@@ -167,19 +169,22 @@ fn parse_policy<'a>(buf: &Buffer<'a>) -> Result<(Buffer<'a>, UpdateSpec), ParseE
             ),
         ))
     } else if buf.starts_with_no_case("open") {
-        let buf = buf.token_no_case("open")?
+        let buf = buf
+            .token_no_case("open")?
             .space()?
             .token_no_case("all")?
             .space_or_end()?;
         Ok((buf, UpdateSpec::OpenAll))
-    } else if buf.text
+    } else if buf
+        .text
         .chars()
         .next()
         .map(|x| x.is_digit(10))
         .unwrap_or_default()
     {
         let (buf, count) = parse_number(&buf)?;
-        let buf = buf.trim_left()
+        let buf = buf
+            .trim_left()
             .token_no_case("new")?
             .space()?
             .first_token_of_no_case(&["comics", "comic"])?
@@ -204,7 +209,8 @@ fn parse_policy<'a>(buf: &Buffer<'a>) -> Result<(Buffer<'a>, UpdateSpec), ParseE
 
 fn parse_number<'a>(buf: &Buffer<'a>) -> ParseResult<'a, usize> {
     let buf = buf.trim_left();
-    let end = buf.text
+    let end = buf
+        .text
         .find(|c: char| !c.is_digit(10))
         .unwrap_or_else(|| buf.text.len());
     if end == 0 {
@@ -291,18 +297,16 @@ mod test {
 "#;
         assert_eq!(
             parse_config(buf),
-            Ok(vec![
-                FeedInfo {
-                    name: "Questionable Content".into(),
-                    url: "http://questionablecontent.net/QCRSS.xml".into(),
-                    update_policies: HashSet::from_iter(vec![
-                        UpdateSpec::On(Weekday::Sat),
-                        UpdateSpec::Every(10),
-                    ]),
-                    root: None,
-                    command: None,
-                },
-            ])
+            Ok(vec![FeedInfo {
+                name: "Questionable Content".into(),
+                url: "http://questionablecontent.net/QCRSS.xml".into(),
+                update_policies: HashSet::from_iter(vec![
+                    UpdateSpec::On(Weekday::Sat),
+                    UpdateSpec::Every(10),
+                ]),
+                root: None,
+                command: None,
+            }])
         );
     }
 
@@ -532,20 +536,18 @@ read 2017-07-18T23:41:58.130248+00:00
 ";
         assert_eq!(
             parse_config(pattern_text),
-            Ok(vec![
-                FeedInfo {
-                    name: "El Goonish Shive".into(),
-                    url: "http://www.egscomics.com/rss.php".into(),
-                    update_policies: HashSet::from_iter(vec![
-                        UpdateSpec::Filter(FilterType::IgnoreTitle, "EGS:NP".into()),
-                        UpdateSpec::Filter(FilterType::KeepTitle, "\\d{4}-\\d{2}-\\d{2}".into()),
-                        UpdateSpec::Filter(FilterType::KeepUrl, ".".into()),
-                        UpdateSpec::Filter(FilterType::IgnoreUrl, "egsnp".into()),
-                    ]),
-                    root: None,
-                    command: None,
-                },
-            ])
+            Ok(vec![FeedInfo {
+                name: "El Goonish Shive".into(),
+                url: "http://www.egscomics.com/rss.php".into(),
+                update_policies: HashSet::from_iter(vec![
+                    UpdateSpec::Filter(FilterType::IgnoreTitle, "EGS:NP".into()),
+                    UpdateSpec::Filter(FilterType::KeepTitle, "\\d{4}-\\d{2}-\\d{2}".into()),
+                    UpdateSpec::Filter(FilterType::KeepUrl, ".".into()),
+                    UpdateSpec::Filter(FilterType::IgnoreUrl, "egsnp".into()),
+                ]),
+                root: None,
+                command: None,
+            }])
         );
     }
 }

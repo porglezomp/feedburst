@@ -13,15 +13,15 @@ use std::str::FromStr;
 
 use clap::{App, Arg};
 
-mod parser;
-mod parse_util;
-mod feed;
-mod error;
 mod config;
+mod error;
+mod feed;
+mod parse_util;
+mod parser;
 mod platform;
 
-use feed::Feed;
 use error::{Error, ParseError, Span};
+use feed::Feed;
 
 const APP_NAME: &str = env!("CARGO_PKG_NAME");
 
@@ -85,7 +85,11 @@ fn run() -> Result<(), Error> {
         file.read_to_string(&mut text)?;
 
         let make_error_message = |row: usize, span: Span, msg: &str| -> Error {
-            let mut message = format!("Line {}: Error parsing {:?}\n\n", row, args.config_path(),);
+            let mut message = format!(
+                "Line {}: Error parsing {}\n\n",
+                row,
+                args.config_path().display(),
+            );
             let line = text.lines().nth(row - 1).unwrap_or_default();
             message.push_str(&format!("{}\n", line));
             match span {
@@ -110,8 +114,8 @@ fn run() -> Result<(), Error> {
 
     if feeds.is_empty() {
         println!(
-            "You're not following any comics. Add some to your config file at {:?}",
-            args.config_path(),
+            "You're not following any comics. Add some to your config file at {}",
+            args.config_path().display(),
         );
         return Ok(());
     }
@@ -212,7 +216,7 @@ fn fetch_feed(args: &config::Args, mut feed: Feed) -> Result<Feed, Error> {
                     .filter(|x| {
                         let keep = feed_info.filter_title(&x.title);
                         if !keep {
-                            println!("skipping by title: {}", x.title);
+                            debug!("skipping by title: {}", x.title);
                         }
                         keep
                     })
@@ -231,7 +235,7 @@ fn fetch_feed(args: &config::Args, mut feed: Feed) -> Result<Feed, Error> {
                         let title = title.as_ref().map(|x| &x[..]).unwrap_or("");
                         let keep = feed_info.filter_title(&title);
                         if !keep {
-                            println!("skipping by title: {:?}", x.title);
+                            debug!("skipping by title: {:?}", x.title);
                         }
                         keep
                     })
@@ -256,7 +260,8 @@ fn read_feed(args: &config::Args, feed: &mut Feed) -> Result<(), Error> {
     }
     let plural_feeds = if items.len() == 1 { "comic" } else { "comics" };
     println!("{} ({} {})", feed.info.name, items.len(), plural_feeds);
-    if feed.info
+    if feed
+        .info
         .update_policies
         .contains(&feed::UpdateSpec::OpenAll)
     {

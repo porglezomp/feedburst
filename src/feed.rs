@@ -1,11 +1,11 @@
-use std::collections::HashSet;
 use chrono::{DateTime, Utc, Weekday, MIN_DATE};
 use regex::Regex;
+use std::collections::HashSet;
 use std::io::{self, Read, Seek, Write};
 use std::path::PathBuf;
 
-use parser::parse_events;
 use error::{Error, ParseError, Span};
+use parser::parse_events;
 
 #[derive(Hash, Clone, Debug, PartialEq, Eq)]
 pub enum UpdateSpec {

@@ -1,5 +1,5 @@
-use std::{fmt, io};
 use reqwest;
+use std::{fmt, io};
 
 #[derive(Debug)]
 pub enum Error {
