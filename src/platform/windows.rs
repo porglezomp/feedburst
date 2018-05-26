@@ -1,5 +1,5 @@
-use std::path::{Path, PathBuf};
 use std::ffi::OsStr;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::{env, fs};
 
@@ -14,8 +14,8 @@ fn app_data_dir() -> Result<PathBuf, Error> {
 }
 
 pub fn data_path(path: &str) -> Result<PathBuf, Error> {
-    let path = app_data_dir()?.join(path).parent().unwrap().into();
-    fs::create_dir_all(&path).map_err(|err| {
+    let path = app_data_dir()?.join(path);
+    fs::create_dir_all(path.parent().unwrap()).map_err(|err| {
         Error::Msg(format!(
             "Error creating feeds directory {:?}: {}",
             path, err

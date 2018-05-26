@@ -1,12 +1,12 @@
 use std::env;
-use std::path::{Path, PathBuf};
 use std::fs::{File, OpenOptions};
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use error::{Error, ParseError};
 use feed::FeedInfo;
-use platform;
 use parser;
+use platform;
 
 #[derive(Debug, Clone)]
 enum PathWrapper {
@@ -62,9 +62,12 @@ impl Args {
                 .write(true)
                 .read(true)
                 .open(path)
-                .map_err(|err| Error::Msg(format!("Cannot open file {:?}: {}", path, err)))?),
-            PathWrapper::ErrorIfMissing(ref path) => Ok(File::open(path)
-                .map_err(|err| Error::Msg(format!("Cannot open file {:?}: {}", path, err)))?),
+                .map_err(|err| {
+                    Error::Msg(format!("Cannot open file {}: {}", path.display(), err))
+                })?),
+            PathWrapper::ErrorIfMissing(ref path) => Ok(File::open(path).map_err(|err| {
+                Error::Msg(format!("Cannot open file {}: {}", path.display(), err))
+            })?),
         }
     }
 
@@ -76,7 +79,13 @@ impl Args {
             .write(true)
             .create(true)
             .open(&path)
-            .map_err(|err| Error::Msg(format!("Error opening feed file {:?}: {}", path, err)))
+            .map_err(|err| {
+                Error::Msg(format!(
+                    "Error opening feed file {}: {}",
+                    path.display(),
+                    err
+                ))
+            })
     }
 
     pub fn open_url(&self, feed: &FeedInfo, url: &str) -> Result<(), Error> {
@@ -124,7 +133,10 @@ fn feed_path(root: Option<&PathBuf>, name: &str) -> Result<PathBuf, Error> {
         debug!("Using feed specified on the command line: {:?}", root);
         let root = Path::new(root);
         if !root.is_dir() {
-            Err(Error::Msg(format!("Error: {:?} is not a directory", root)))
+            Err(Error::Msg(format!(
+                "Error: {} is not a directory",
+                root.display()
+            )))
         } else {
             Ok(root.join(format!("{}.feed", name)))
         }

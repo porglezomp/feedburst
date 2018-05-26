@@ -1,6 +1,6 @@
 [package]
 name = "feedburst"
-version = "0.4.0"
+version = "0.4.1"
 authors = ["Caleb Jones <code@calebjones.net>"]
 repository = "https://github.com/porglezomp/feedburst"
 license = "GPL-3.0+"
@@ -25,7 +25,7 @@ chrono = "0.4"
 clap = "2.25"
 log = "0.3.8"
 pretty_env_logger = "0.1.1"
-app_dirs = "1.1.1"
+app_dirs = "1.2.1"
 regex = "0.2"
 
 [[bin]]
