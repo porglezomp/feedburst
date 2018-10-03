@@ -1,12 +1,12 @@
-extern crate chrono;
-extern crate clap;
+
+
 #[macro_use]
 extern crate log;
-extern crate pretty_env_logger;
-extern crate regex;
-extern crate reqwest;
-extern crate syndication;
-extern crate xdg;
+use pretty_env_logger;
+
+use reqwest;
+
+
 
 use std::io::Read;
 use std::str::FromStr;

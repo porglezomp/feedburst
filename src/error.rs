@@ -9,7 +9,7 @@ pub enum Error {
 }
 
 impl fmt::Display for Error {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
             Error::Io(ref err) => write!(fmt, "Error performing IO: {}", err),
             Error::Msg(ref err) => write!(fmt, "{}", err),
