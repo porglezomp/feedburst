@@ -2,11 +2,11 @@ use std::collections::HashSet;
 use std::iter::FromIterator;
 
 use chrono::Weekday;
-use feed::{FeedEvent, FeedInfo, FilterType, UpdateSpec};
+use crate::feed::{FeedEvent, FeedInfo, FilterType, UpdateSpec};
 use regex::Regex;
 
-use error::ParseError;
-use parse_util::{Buffer, ParseResult};
+use crate::error::ParseError;
+use crate::parse_util::{Buffer, ParseResult};
 
 pub fn parse_command(input: &str) -> Result<Vec<String>, ParseError> {
     let buf = Buffer {

@@ -2,6 +2,7 @@
 name = "feedburst"
 version = "0.4.1"
 authors = ["Caleb Jones <code@calebjones.net>"]
+edition = "2018"
 repository = "https://github.com/porglezomp/feedburst"
 license = "GPL-3.0+"
 readme = "README.md"

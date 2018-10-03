@@ -20,8 +20,8 @@ mod parse_util;
 mod parser;
 mod platform;
 
-use error::{Error, ParseError, Span};
-use feed::Feed;
+use crate::error::{Error, ParseError, Span};
+use crate::feed::Feed;
 
 const APP_NAME: &str = env!("CARGO_PKG_NAME");
 
