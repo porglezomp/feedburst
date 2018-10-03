@@ -181,7 +181,7 @@ impl Feed {
                     trace!("Rule for \"{}\": @ on {:?}", self.info.name, day);
                     day_relevant = true;
                     use chrono::Datelike;
-                    let mut last_day = self.last_read.weekday();
+                    let mut last_day = last_read.weekday();
                     for _ in 0..elapsed_time.num_days() {
                         last_day = last_day.succ();
                         if last_day == day {
