@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc, Weekday, MIN_DATE};
+use chrono::{DateTime, Utc, Local, Weekday, MIN_DATE};
 use regex::Regex;
 use std::collections::HashSet;
 use std::io::{self, Read, Seek, Write};
@@ -157,7 +157,8 @@ impl Feed {
     }
 
     pub fn is_scheduled(&self) -> bool {
-        let elapsed_time = Utc::now().signed_duration_since(self.last_read);
+        let last_read = self.last_read.with_timezone(&Local);
+        let elapsed_time = Local::now().signed_duration_since(last_read);
         let mut day_passed = false;
         let mut day_relevant = false;
 
