@@ -8,9 +8,9 @@ environment:
     RUST_BACKTRACE: full
   matrix:
     - TARGET: x86_64-pc-windows-gnu
-      CHANNEL: stable
+      CHANNEL: nightly
     - TARGET: x86_64-pc-windows-msvc
-      CHANNEL: stable
+      CHANNEL: nightly
 
 # Install Rust and Cargo
 # (Based on from https://github.com/rust-lang/libc/blob/master/appveyor.yml)
@@ -48,12 +48,12 @@ deploy:
   auth_token:
     secure: H4KIZ5nlJPKIxbBtlI9mJX2LYgMSRQQq05NiMd+1ZtSBXeuSS8CiPOtYzIkVIie3
   provider: GitHub
-  # deploy when a new tag is pushed and only on the stable channel
+  # deploy when a new tag is pushed and only on the nightly channel
   on:
     # channel to use to produce the release artifacts
     # NOTE make sure you only release *once* per target
     # TODO you may want to pick a different channel
-    CHANNEL: stable
+    CHANNEL: nightly
     appveyor_repo_tag: true
 
 # branches:
