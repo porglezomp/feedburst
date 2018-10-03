@@ -51,7 +51,8 @@ pub fn parse_config(input: &str) -> Result<Vec<FeedInfo>, ParseError> {
             row: row + 1,
             col: 0,
             text: line,
-        }.trim();
+        }
+        .trim();
 
         if buf.starts_with("#") || buf.text.is_empty() {
             continue;
@@ -255,7 +256,8 @@ pub fn parse_events(input: &str) -> Result<Vec<FeedEvent>, ParseError> {
             row: row + 1,
             col: 0,
             text: line,
-        }.trim();
+        }
+        .trim();
         if line.text.is_empty() {
             continue;
         }
