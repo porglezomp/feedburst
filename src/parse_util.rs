@@ -1,4 +1,4 @@
-use error::ParseError;
+use crate::error::ParseError;
 
 pub type ParseResult<'a, T> = Result<(Buffer<'a>, T), ParseError>;
 pub type ParseSuccess<'a> = Result<Buffer<'a>, ParseError>;

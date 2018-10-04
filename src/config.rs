@@ -3,10 +3,10 @@ use std::fs::{File, OpenOptions};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use error::{Error, ParseError};
-use feed::FeedInfo;
-use parser;
-use platform;
+use crate::error::{Error, ParseError};
+use crate::feed::FeedInfo;
+use crate::parser;
+use crate::platform;
 
 #[derive(Debug, Clone)]
 enum PathWrapper {
