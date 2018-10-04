@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::{env, fs};
 
-use error::Error;
+use crate::error::Error;
 
 fn app_data_dir() -> Result<PathBuf, Error> {
     if let Some(app_data_dir) = env::var_os("APPDATA") {
