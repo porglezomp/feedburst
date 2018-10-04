@@ -9,7 +9,6 @@ keywords = ["comic", "rss", "atom", "syndication"]
 categories = ["command-line-utilities"]
 edition = "2018"
 publish = true
-edition = "2018"
 description = """
 A tool to consume comic RSS feeds and present them to you in bunches, on a schedule of your choosing.
 """
