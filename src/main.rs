@@ -11,6 +11,7 @@ extern crate xdg;
 use std::io::Read;
 use std::str::FromStr;
 
+use chrono::Local;
 use clap::{App, Arg};
 
 mod config;
@@ -136,7 +137,7 @@ fn run() -> Result<(), Error> {
         .collect();
 
     // Fetch the feeds that are currently scheduled, not those that are unscheduled
-    feeds.sort_by_key(|feed| !feed.is_scheduled());
+    feeds.sort_by_key(|feed| !feed.is_scheduled(Local::now()));
 
     let rx = {
         let (tx, rx) = std::sync::mpsc::channel();

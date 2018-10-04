@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc, Local, Weekday, MIN_DATE};
+use chrono::{DateTime, Local, Utc, Weekday};
 use regex::Regex;
 use std::collections::HashSet;
 use std::io::{self, Read, Seek, Write};
@@ -62,7 +62,7 @@ impl FeedInfo {
             }
         };
 
-        let mut last_read = MIN_DATE.and_hms(0, 0, 0);
+        let mut last_read = None;
         let mut new_comics = 0;
         let mut seen_comics = HashSet::new();
         for event in &events {
@@ -72,7 +72,7 @@ impl FeedInfo {
                     seen_comics.insert(url.clone());
                 }
                 FeedEvent::Read(date) => {
-                    last_read = date;
+                    last_read = Some(date);
                     new_comics = 0;
                 }
             }
@@ -138,7 +138,7 @@ pub enum FeedEvent {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Feed {
     pub info: FeedInfo,
-    last_read: DateTime<Utc>,
+    last_read: Option<DateTime<Utc>>,
     new_comics: usize,
     seen_comics: HashSet<String>,
     new_events: Vec<FeedEvent>,
@@ -156,9 +156,14 @@ impl Feed {
         }
     }
 
-    pub fn is_scheduled(&self) -> bool {
-        let last_read = self.last_read.with_timezone(&Local);
-        let elapsed_time = Local::now().signed_duration_since(last_read);
+    pub fn is_scheduled(&self, datetime: DateTime<Local>) -> bool {
+        let last_read = match self.last_read {
+            Some(last_read) => last_read,
+            None => return true,
+        };
+
+        let last_read = last_read.with_timezone(&Local);
+        let elapsed_time = datetime.signed_duration_since(last_read);
         let mut day_passed = false;
         let mut day_relevant = false;
 
@@ -211,7 +216,7 @@ impl Feed {
             return false;
         }
 
-        if !self.is_scheduled() {
+        if !self.is_scheduled(Local::now()) {
             return false;
         }
 
