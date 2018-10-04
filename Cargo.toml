@@ -8,7 +8,6 @@ readme = "README.md"
 keywords = ["comic", "rss", "atom", "syndication"]
 categories = ["command-line-utilities"]
 publish = true
-cargo-features = ["edition"]
 edition = "2018"
 description = """
 A tool to consume comic RSS feeds and present them to you in bunches, on a schedule of your choosing.
