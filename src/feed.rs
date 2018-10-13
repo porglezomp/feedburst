@@ -4,8 +4,8 @@ use std::collections::HashSet;
 use std::io::{self, Read, Seek, Write};
 use std::path::PathBuf;
 
-use error::{Error, ParseError, Span};
-use parser::parse_events;
+use crate::error::{Error, ParseError, Span};
+use crate::parser::parse_events;
 
 #[derive(Hash, Clone, Debug, PartialEq, Eq)]
 pub enum UpdateSpec {

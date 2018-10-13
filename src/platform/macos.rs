@@ -1,7 +1,7 @@
 use std::ffi::OsStr;
 use std::process::Command;
 
-use error::Error;
+use crate::error::Error;
 
 pub fn open_url<T: AsRef<OsStr>>(url: T) -> Result<(), Error> {
     let exit_status = Command::new("open").arg(&url).spawn()?.wait()?;

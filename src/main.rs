@@ -1,12 +1,8 @@
-extern crate chrono;
-extern crate clap;
 #[macro_use]
 extern crate log;
-extern crate pretty_env_logger;
-extern crate regex;
-extern crate reqwest;
-extern crate syndication;
-extern crate xdg;
+use pretty_env_logger;
+
+use reqwest;
 
 use std::io::Read;
 use std::str::FromStr;
@@ -21,8 +17,8 @@ mod parse_util;
 mod parser;
 mod platform;
 
-use error::{Error, ParseError, Span};
-use feed::Feed;
+use crate::error::{Error, ParseError, Span};
+use crate::feed::Feed;
 
 const APP_NAME: &str = env!("CARGO_PKG_NAME");
 

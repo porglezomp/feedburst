@@ -3,10 +3,10 @@ use std::fs::{File, OpenOptions};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use error::{Error, ParseError};
-use feed::FeedInfo;
-use parser;
-use platform;
+use crate::error::{Error, ParseError};
+use crate::feed::FeedInfo;
+use crate::parser;
+use crate::platform;
 
 #[derive(Debug, Clone)]
 enum PathWrapper {
@@ -93,7 +93,7 @@ impl Args {
             let mut found_url = false;
             let command_str = command.join(" ");
             let mut command: Vec<String> = (*command).clone();
-            for (i, mut item) in command.iter_mut().enumerate() {
+            for (i, item) in command.iter_mut().enumerate() {
                 if item.to_uppercase() == "@URL" {
                     if i == 0 {
                         let msg = format!(
