@@ -20,14 +20,14 @@ coveralls = { repository = "porglezomp/feedburst", branch = "develop" }
 
 [dependencies]
 syndication = "0.4"
-reqwest = "0.7"
+reqwest = "0.9"
 xdg = "^2.1"
 chrono = "0.4"
-clap = "2.25"
-log = "0.3.8"
-pretty_env_logger = "0.1.1"
+clap = "2.32"
+log = "0.4.5"
+pretty_env_logger = "0.2.4"
 app_dirs = "1.2.1"
-regex = "0.2"
+regex = "1.0"
 
 [[bin]]
 name = "feedburst"
