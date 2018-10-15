@@ -30,7 +30,7 @@ fn main() {
 }
 
 fn run() -> Result<(), Error> {
-    pretty_env_logger::init().unwrap();
+    pretty_env_logger::init();
     let matches = App::new(APP_NAME)
         .version(env!("CARGO_PKG_VERSION"))
         .author(env!("CARGO_PKG_AUTHORS"))
@@ -182,10 +182,10 @@ fn run() -> Result<(), Error> {
 
 fn fetch_feed(args: &config::Args, mut feed: Feed) -> Result<Feed, Error> {
     debug!("Fetching \"{}\" from <{}>", feed.info.name, feed.info.url);
-    let client = reqwest::ClientBuilder::new()?
+    let client = reqwest::ClientBuilder::new()
         .timeout(std::time::Duration::from_secs(5))
         .build()?;
-    let mut resp = client.get(&feed.info.url)?.send()?;
+    let mut resp = client.get(&feed.info.url).send()?;
     if !resp.status().is_success() {
         debug!(
             "Error \"{}\" fetching feed {} from {}",
