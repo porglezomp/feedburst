@@ -1,8 +1,8 @@
 use std::collections::HashSet;
 use std::iter::FromIterator;
 
-use chrono::Weekday;
 use crate::feed::{FeedEvent, FeedInfo, FilterType, UpdateSpec};
+use chrono::Weekday;
 use regex::Regex;
 
 use crate::error::ParseError;
