@@ -1,8 +1,8 @@
 use std::collections::HashSet;
 use std::iter::FromIterator;
 
-use chrono::Weekday;
 use crate::feed::{FeedEvent, FeedInfo, FilterType, UpdateSpec};
+use chrono::Weekday;
 use regex::Regex;
 
 use crate::error::ParseError;
@@ -25,13 +25,13 @@ fn parse_command_internal<'a>(buf: &Buffer<'a>) -> ParseResult<'a, Vec<String>> 
     while !buf.text.is_empty() {
         let (new_buf, part) = parse_command_part(&buf)?;
         output.push(part);
-        buf = new_buf.trim_left();
+        buf = new_buf.trim_start();
     }
     Ok((buf, output.into_iter().map(String::from).collect()))
 }
 
 fn parse_command_part<'a>(buf: &Buffer<'a>) -> ParseResult<'a, &'a str> {
-    let buf = buf.trim_left();
+    let buf = buf.trim_start();
     match buf.peek() {
         Some('\'') => buf.read_between('\'', '\''),
         Some('"') => buf.read_between('"', '"'),
@@ -84,9 +84,9 @@ pub fn parse_config(input: &str) -> Result<Vec<FeedInfo>, ParseError> {
 
 fn parse_line<'a>(buf: &Buffer<'a>) -> ParseResult<'a, FeedInfo> {
     let (buf, name) = parse_name(buf)?;
-    let buf = buf.trim_left();
+    let buf = buf.trim_start();
     let (buf, url) = parse_url(&buf)?;
-    let buf = buf.trim_left();
+    let buf = buf.trim_start();
     let (buf, policies) = parse_policies(&buf)?;
     Ok((
         buf,
@@ -101,26 +101,26 @@ fn parse_line<'a>(buf: &Buffer<'a>) -> ParseResult<'a, FeedInfo> {
 }
 
 fn parse_name<'a>(buf: &Buffer<'a>) -> ParseResult<'a, &'a str> {
-    buf.trim_left().read_between('"', '"')
+    buf.trim_start().read_between('"', '"')
 }
 
 fn parse_url<'a>(buf: &Buffer<'a>) -> ParseResult<'a, &'a str> {
-    buf.trim_left().read_between('<', '>')
+    buf.trim_start().read_between('<', '>')
 }
 
 fn parse_policies<'a>(buf: &Buffer<'a>) -> ParseResult<'a, Vec<UpdateSpec>> {
     let mut policies = Vec::new();
-    let mut buf = buf.trim_left();
+    let mut buf = buf.trim_start();
     while buf.starts_with("@") {
         let (inp, policy) = parse_policy(&buf)?;
         policies.push(policy);
-        buf = inp.trim_left();
+        buf = inp.trim_start();
     }
     Ok((buf, policies))
 }
 
 fn parse_policy<'a>(buf: &Buffer<'a>) -> Result<(Buffer<'a>, UpdateSpec), ParseError> {
-    let buf = buf.trim_left().token("@")?.space()?;
+    let buf = buf.trim_start().token("@")?.space()?;
 
     if buf.starts_with_no_case("on") {
         let buf = buf.token_no_case("on")?.space()?;
@@ -150,7 +150,11 @@ fn parse_policy<'a>(buf: &Buffer<'a>) -> Result<(Buffer<'a>, UpdateSpec), ParseE
         let buf = buf.space()?;
         let (buf, act_target) = buf.first_token_of_no_case(&["url", "title"])?;
         let buf = buf.space()?;
-        let c = buf.text.chars().next().ok_or(buf.expected("a pattern"))?;
+        let c = buf
+            .text
+            .chars()
+            .next()
+            .ok_or_else(|| buf.expected("a pattern"))?;
         let (buf, pat) = buf.read_between(c, c)?;
         if let Err(err) = Regex::new(pat) {
             // @Todo: Get the span right
@@ -185,7 +189,7 @@ fn parse_policy<'a>(buf: &Buffer<'a>) -> Result<(Buffer<'a>, UpdateSpec), ParseE
     {
         let (buf, count) = parse_number(&buf)?;
         let buf = buf
-            .trim_left()
+            .trim_start()
             .token_no_case("new")?
             .space()?
             .first_token_of_no_case(&["comics", "comic"])?
@@ -209,7 +213,7 @@ fn parse_policy<'a>(buf: &Buffer<'a>) -> Result<(Buffer<'a>, UpdateSpec), ParseE
 }
 
 fn parse_number<'a>(buf: &Buffer<'a>) -> ParseResult<'a, usize> {
-    let buf = buf.trim_left();
+    let buf = buf.trim_start();
     let end = buf
         .text
         .find(|c: char| !c.is_digit(10))

@@ -7,8 +7,9 @@ environment:
     PROJECT_NAME: feedburst
     RUST_BACKTRACE: full
   matrix:
-    - TARGET: x86_64-pc-windows-gnu
-      CHANNEL: nightly
+    # seems like this is broken on AppVeyor :/
+    # - TARGET: x86_64-pc-windows-gnu
+    #   CHANNEL: nightly
     - TARGET: x86_64-pc-windows-msvc
       CHANNEL: nightly
 

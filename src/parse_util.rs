@@ -25,26 +25,26 @@ impl<'a> Buffer<'a> {
         self.text.chars().next()
     }
 
-    pub fn trim_left(&self) -> Buffer<'a> {
+    pub fn trim_start(&self) -> Buffer<'a> {
         match self.text.find(|x: char| !x.is_whitespace()) {
             Some(offset) => self.advance(offset),
             None => self.advance(self.text.len()),
         }
     }
 
-    pub fn trim_right(&self) -> Buffer<'a> {
+    pub fn trim_end(&self) -> Buffer<'a> {
         Buffer {
-            text: self.text.trim_right(),
+            text: self.text.trim_end(),
             ..*self
         }
     }
 
     pub fn trim(&self) -> Buffer<'a> {
-        self.trim_left().trim_right()
+        self.trim_start().trim_end()
     }
 
     pub fn space(&self) -> ParseSuccess<'a> {
-        let new_input = self.trim_left();
+        let new_input = self.trim_start();
         if new_input == *self {
             Err(self.expected("whitespace"))
         } else {
@@ -211,7 +211,7 @@ mod test {
         };
 
         assert_eq!(
-            input.trim_left(),
+            input.trim_start(),
             Buffer {
                 row: 1,
                 col: 4,
@@ -219,7 +219,7 @@ mod test {
             }
         );
         assert_eq!(
-            input.trim_right(),
+            input.trim_end(),
             Buffer {
                 row: 1,
                 col: 2,
@@ -236,8 +236,8 @@ mod test {
         );
 
         // Idempotent
-        assert_eq!(input.trim_left(), input.trim_left().trim_left());
-        assert_eq!(input.trim_right(), input.trim_right().trim_right());
+        assert_eq!(input.trim_start(), input.trim_start().trim_start());
+        assert_eq!(input.trim_end(), input.trim_end().trim_end());
         assert_eq!(input.trim(), input.trim().trim());
     }
 
