@@ -1,8 +1,5 @@
 #[macro_use]
 extern crate log;
-use pretty_env_logger;
-
-use reqwest;
 
 use std::io::Read;
 use std::str::FromStr;

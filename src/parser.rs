@@ -150,7 +150,11 @@ fn parse_policy<'a>(buf: &Buffer<'a>) -> Result<(Buffer<'a>, UpdateSpec), ParseE
         let buf = buf.space()?;
         let (buf, act_target) = buf.first_token_of_no_case(&["url", "title"])?;
         let buf = buf.space()?;
-        let c = buf.text.chars().next().ok_or(buf.expected("a pattern"))?;
+        let c = buf
+            .text
+            .chars()
+            .next()
+            .ok_or_else(|| buf.expected("a pattern"))?;
         let (buf, pat) = buf.read_between(c, c)?;
         if let Err(err) = Regex::new(pat) {
             // @Todo: Get the span right
